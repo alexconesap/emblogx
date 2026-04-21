@@ -1,0 +1,62 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Arduino
+*.elf
+*.hex
+*.bin
+*.eep
+*.lst
+*.sym
+*.lss
+*.map
+build/
+.build/
+
+# PlatformIO
+.pio/
+.pioenvs/
+.piolibdeps/
+
+# IDE specific
+*.sublime-project
+*.sublime-workspace
+.idea/
+.vscode/
+
+# NVS dumps
+nvs*.bin
+
+# Settings files
+*.settings
+
+# Manually downloaded libraries
+**/libraries/zip/*.zip
+
+# Compiled Object files
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*~
+
+# Backup files
+*.bak
+*.orig
+
+# Log files
+*.log
+
+
