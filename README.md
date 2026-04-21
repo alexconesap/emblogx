@@ -616,7 +616,7 @@ threads, no flaky timing.
 | Library | Repo | Used for |
 | ------- | ---- | -------- |
 | UngulaSd | [ungula-sd](https://github.com/alexconesap/ungula-sd.git) | Required when `EMBLOGX_ENABLE_SINK_SD=1` — provides `IFileSystem` and `IFile` interfaces injected into `SdSink` |
-| UngulaCore | [ungula-lib](https://github.com/alexconesap/ungula-core.git) | Platform abstractions reused by optional sinks (time, system control). The core router does not need it |
+| UngulaCore | [ungula-core](https://github.com/alexconesap/ungula-core.git) | Platform abstractions reused by optional sinks (time, system control). The core router does not need it |
 | UngulaNet | [ungula-net](https://github.com/alexconesap/ungula-net.git) | Required only when `EMBLOGX_ENABLE_SINK_HTTP=1` |
 
 ## Acknowledgements

@@ -29,12 +29,12 @@ if(USE_LOCAL_DEPS)
     set(LIB_SD_SRC ${CMAKE_CURRENT_LIST_DIR}/../../lib_sd/src)
 else()
     FetchContent_Declare(
-        ungula_lib_sd
+        ungula_sd
         GIT_REPOSITORY https://github.com/alexconesap/ungula-sd.git
         GIT_TAG main
     )
-    FetchContent_MakeAvailable(ungula_lib_sd)
-    set(LIB_SD_SRC ${ungula_lib_sd_SOURCE_DIR}/src)
+    FetchContent_MakeAvailable(ungula_sd)
+    set(LIB_SD_SRC ${ungula_sd_SOURCE_DIR}/src)
 endif()
 
 set(LIB_EMBLOGX_SRC ${CMAKE_CURRENT_LIST_DIR}/../src)
