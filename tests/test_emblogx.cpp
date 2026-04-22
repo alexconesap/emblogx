@@ -4,8 +4,10 @@
 
 #include <gtest/gtest.h>
 
+#include <chrono>
 #include <cstring>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "emblogx/logger.h"
@@ -436,4 +438,228 @@ TEST(AsyncDispatcher, TimestampSurvivesAbove32BitWrap) {
     EXPECT_EQ(cap.timestamps[0], kBig);
 
     dispatcher.stop();
+}
+
+// ----------------------------------------------------------------------------
+// Rate limiting
+// ----------------------------------------------------------------------------
+
+TEST(RateLimit, DropsRepeatedCallsWithinInterval) {
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);  // 10 s — effectively drops repeats in-test
+
+    for (int i = 0; i < 5; ++i) {
+        log_info("rate-limited %d", i);
+    }
+
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ErrorLevelAlwaysGoesThrough) {
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    for (int i = 0; i < 3; ++i) {
+        log_error("should always show %d", i);
+    }
+
+    EXPECT_EQ(sink->seen.size(), baseline + 3);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ForceVariantsBypassTheLimiter) {
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    log_info_force("forced one %d", 1);
+    log_info_force("forced one %d", 2);
+    log_info_force_m("setup", "forced two %d", 3);
+
+    EXPECT_EQ(sink->seen.size(), baseline + 3);
+    EXPECT_EQ(sink->seen.back().module, "setup");
+    EXPECT_NE(sink->seen.back().line.find("forced two 3"), std::string::npos);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, DifferentCallSitesDontThrottleEachOther) {
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    log_info("site A %d", 1);
+    log_info("site B %d", 2);
+    log_warn("site C %d", 3);
+
+    EXPECT_EQ(sink->seen.size(), baseline + 3);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ReopensAfterIntervalElapses) {
+    // After the configured interval has passed, the same call site must be
+    // allowed through again. Uses a short interval + real sleep so the
+    // monotonic clock used by the core actually advances.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(50);
+
+    log_info("reopen test %d", 1);  // 1st: lands
+    log_info("reopen test %d", 2);  // 2nd: dropped (within window)
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
+    log_info("reopen test %d", 3);  // window expired: lands
+    log_info("reopen test %d", 4);  // immediately after: dropped
+    EXPECT_EQ(sink->seen.size(), baseline + 2);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
+    log_info("reopen test %d", 5);  // window expired again: lands
+    EXPECT_EQ(sink->seen.size(), baseline + 3);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ChangingIntervalAtRuntimeTakesEffect) {
+    // Lowering the interval while the limiter is running must let calls
+    // through that would have been blocked under the previous, longer
+    // interval — and vice versa.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+    log_info("interval change %d", 1);  // lands
+    log_info("interval change %d", 2);  // dropped
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    // Drop the limit to a very small value, sleep just past it, and the
+    // same call site should pass again.
+    log_set_rate_limit_ms(20);
+    std::this_thread::sleep_for(std::chrono::milliseconds(40));
+    log_info("interval change %d", 3);  // lands
+    EXPECT_EQ(sink->seen.size(), baseline + 2);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, TableEvictionStillThrottlesActiveSites) {
+    // The rate table is fixed-size (16 slots). Once it is full the oldest
+    // entry is evicted to make room for new sites. The freshly-eviced site
+    // becomes "unknown" and a single call from it goes through, but a site
+    // that has been kept warm by recent calls must still be throttled.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    // Warm one site we want to stay throttled.
+    log_info("warm site");                          // lands
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    // Flood the table with 30 distinct fmt pointers — each is a separate
+    // string literal, so each gets its own slot (and forces evictions).
+    log_info("flood %d", 1);
+    log_info("flood %d %d", 1, 2);
+    log_info("flood %d %d %d", 1, 2, 3);
+    log_info("flood A");
+    log_info("flood B");
+    log_info("flood C");
+    log_info("flood D");
+    log_info("flood E");
+    log_info("flood F");
+    log_info("flood G");
+    log_info("flood H");
+    log_info("flood I");
+    log_info("flood J");
+    log_info("flood K");
+    log_info("flood L");
+    log_info("flood M");
+    log_info("flood N");
+    log_info("flood O");
+    log_info("flood P");
+    log_info("flood Q");
+    log_info("flood R");
+    // 21 distinct sites pushed through a 16-slot table. Each is a first
+    // sighting so each lands once.
+    EXPECT_EQ(sink->seen.size(), baseline + 1 + 21);
+
+    // The "warm site" entry was the oldest by timestamp and got evicted
+    // somewhere along the way. Re-firing it now is treated as a new site
+    // and goes through once...
+    log_info("warm site");
+    EXPECT_EQ(sink->seen.size(), baseline + 1 + 21 + 1);
+
+    // ...but immediately re-firing the same site must be throttled again.
+    log_info("warm site");
+    log_info("warm site");
+    EXPECT_EQ(sink->seen.size(), baseline + 1 + 21 + 1);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ModuleVariantsAreThrottledByFmtNotByModule) {
+    // The limiter keys on the fmt pointer, not the module — so the same
+    // fmt called from two different modules in a row hits the same slot
+    // and only the first one lands. This is intentional: a `loop()` that
+    // logs the same line for two subsystems still floods the console.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    log_info_m("modA", "shared %d", 1);  // lands
+    log_info_m("modB", "shared %d", 2);  // same fmt pointer: dropped
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ForceVariantDoesNotResetTheRegularSlot) {
+    // A `_force` call must not refresh the limiter's "last seen" timestamp
+    // for the regular call site, because that would let a single force
+    // call extend the throttle window indefinitely. Verify that after a
+    // burst of forced calls, a normal call from the same fmt still lands
+    // once the original interval has passed.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(50);
+
+    log_info("mixed %d", 0);          // lands, opens window
+    log_info_force("mixed %d", 1);    // forced: lands, must NOT touch slot
+    log_info_force("mixed %d", 2);    // forced: lands
+    log_info("mixed %d", 3);          // within window: dropped
+    EXPECT_EQ(sink->seen.size(), baseline + 3);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(80));
+
+    log_info("mixed %d", 4);          // window expired: lands
+    EXPECT_EQ(sink->seen.size(), baseline + 4);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ZeroDisablesLimiter) {
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(0);
+    for (int i = 0; i < 4; ++i) {
+        log_info("no limit %d", i);
+    }
+
+    EXPECT_EQ(sink->seen.size(), baseline + 4);
 }

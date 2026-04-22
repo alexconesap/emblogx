@@ -77,9 +77,20 @@ log_set_rate_limit_ms(1000);
 void loop() {
   // Your stuff...
 
-  log("This will log ONLY 1 time per second");
+  log_info("This will log ONLY 1 time per second");
 }
 ```
+
+The check is keyed by the format-string pointer (format strings are literals), so every call site is tracked independently. Two different `log_info(...)` calls in the same loop do not throttle each other.
+
+When a specific line must never be dropped — boot banners, one-shot state transitions, startup messages — use the `_force` / `_force_m` variants:
+
+```cpp
+log_info_force(">>>> Boot ok");
+log_info_force_m("setup", ">>>> Firmware Version: %s", VERSION);
+```
+
+Default interval is `0` (rate limiter disabled). Set any non-zero value to enable it.
 
 ## When you need more
 
@@ -164,15 +175,22 @@ A few things to note:
 
 ## Public API
 
-All wrappers come in two flavours: with and without an explicit module name.
-The format string is always the last positional argument.
+Each wrapper in the table below comes in four flavours that combine a module
+suffix with a force suffix. The format string is always the last positional
+argument.
 
 ```cpp
-log_info(fmt, ...);                  // no module
-log_info_m("wifi", fmt, ...);        // with module
+log_info(fmt, ...);                    // no module, rate-limited
+log_info_m("wifi", fmt, ...);          // with module, rate-limited
+log_info_force(fmt, ...);              // no module, bypass rate limiter
+log_info_force_m("wifi", fmt, ...);    // with module, bypass rate limiter
 ```
 
-The full list:
+`_force` / `_force_m` exist for lines that must never be dropped — boot banners,
+firmware version stamp, one-shot state transitions. Use them sparingly; the
+non-force variants are the default for any line that runs more than once.
+
+The full list (each row also has `_m`, `_force`, `_force_m` flavours):
 
 | Wrapper                | Routes to              | Level |
 | ---------------------- | ---------------------- | ----- |

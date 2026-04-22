@@ -90,21 +90,37 @@ namespace emblogx {
 
 // ===== LOG (operational) ===================================================
 
-#define EMBLOGX_DEFINE_WRAPPERS(NAME, TARGET_BITS, LEVEL)                         \
-    inline void NAME(const char* fmt, ...) __attribute__((format(printf, 1, 2))); \
-    inline void NAME(const char* fmt, ...) {                                      \
-        va_list args;                                                             \
-        va_start(args, fmt);                                                      \
-        ::emblogx::log_va((TARGET_BITS), (LEVEL), nullptr, fmt, args);            \
-        va_end(args);                                                             \
-    }                                                                             \
-    inline void NAME##_m(const char* module, const char* fmt, ...)                \
-            __attribute__((format(printf, 2, 3)));                                \
-    inline void NAME##_m(const char* module, const char* fmt, ...) {              \
-        va_list args;                                                             \
-        va_start(args, fmt);                                                      \
-        ::emblogx::log_va((TARGET_BITS), (LEVEL), module, fmt, args);             \
-        va_end(args);                                                             \
+#define EMBLOGX_DEFINE_WRAPPERS(NAME, TARGET_BITS, LEVEL)                             \
+    inline void NAME(const char* fmt, ...) __attribute__((format(printf, 1, 2)));     \
+    inline void NAME(const char* fmt, ...) {                                          \
+        va_list args;                                                                 \
+        va_start(args, fmt);                                                          \
+        ::emblogx::log_va((TARGET_BITS), (LEVEL), nullptr, fmt, args);                \
+        va_end(args);                                                                 \
+    }                                                                                 \
+    inline void NAME##_m(const char* module, const char* fmt, ...)                    \
+            __attribute__((format(printf, 2, 3)));                                    \
+    inline void NAME##_m(const char* module, const char* fmt, ...) {                  \
+        va_list args;                                                                 \
+        va_start(args, fmt);                                                          \
+        ::emblogx::log_va((TARGET_BITS), (LEVEL), module, fmt, args);                 \
+        va_end(args);                                                                 \
+    }                                                                                 \
+    inline void NAME##_force(const char* fmt, ...)                                    \
+            __attribute__((format(printf, 1, 2)));                                    \
+    inline void NAME##_force(const char* fmt, ...) {                                  \
+        va_list args;                                                                 \
+        va_start(args, fmt);                                                          \
+        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), nullptr, fmt, args);          \
+        va_end(args);                                                                 \
+    }                                                                                 \
+    inline void NAME##_force_m(const char* module, const char* fmt, ...)              \
+            __attribute__((format(printf, 2, 3)));                                    \
+    inline void NAME##_force_m(const char* module, const char* fmt, ...) {            \
+        va_list args;                                                                 \
+        va_start(args, fmt);                                                          \
+        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), module, fmt, args);           \
+        va_end(args);                                                                 \
     }
 
 // LOG ----------------------------------------------------------------------
@@ -189,21 +205,27 @@ inline void status_event(int code, const char* module, const char* fmt, ...) {
                             code, body);
 }
 
-// ---- Legacy aliases -------------------------------------------------------
-// The previous logger had a "force" variant that bypassed rate-limiting.
-// emblogx has no rate-limiting in the producer hot path, so the force
-// variants behave identically to their regular counterparts. Kept as
-// preprocessor macros so the host call sites do not need to change.
+// ---- Rate limiting --------------------------------------------------------
+// Throttles repeated calls from the same call site (same format-string
+// pointer) so that logs inside a tight loop() do not flood the console or
+// slow sinks. Error-level records always go through; the `_force` / `_force_m`
+// variants above also bypass the check for boot banners and one-shot events
+// that must never be dropped.
+//
+// Default: 0 (disabled). Set a non-zero interval at boot to enable:
+//
+//   log_set_rate_limit_ms(1000);   // at most one line per fmt per second
+//
+// The check is keyed by the `fmt` pointer. The format string must be a
+// string literal (it already has to be for the printf format attribute).
 
-#define log_info_force log_info
-#define log_warn_force log_warn
-#define log_error_force log_error
+inline void log_set_rate_limit_ms(uint32_t interval_ms) {
+    ::emblogx::set_rate_limit_ms(interval_ms);
+}
 
-// Rate-limiting was a feature of the old logger that emblogx does not need:
-// async sinks own a queue, sync sinks are fast enough that flooding is a
-// caller bug rather than something the logger should mask. The setter is
-// kept as a no-op so existing call sites do not have to be touched.
-inline void log_set_rate_limit_ms(uint32_t /*ms*/) {}
+inline uint32_t log_get_rate_limit_ms() {
+    return ::emblogx::get_rate_limit_ms();
+}
 
 // ---- Lifecycle ------------------------------------------------------------
 //

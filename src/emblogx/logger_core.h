@@ -67,9 +67,25 @@ namespace emblogx {
     // clock_gettime(CLOCK_MONOTONIC) on POSIX.
     uint64_t now_ms();
 
+    // ---- Rate limiting -----------------------------------------------------
+    // Drops repeated calls from the same call site (same `fmt` pointer) when
+    // they arrive faster than the configured interval. Useful when code in
+    // loop() logs on every iteration and would otherwise flood the console
+    // or a slow sink. Error-level records always go through. The `_force`
+    // variants in logger.h also bypass the check — use them for boot banners
+    // and one-shot state transitions that must not be dropped.
+    //
+    // Default: 0 ms (disabled). The rate check is keyed by the `fmt` pointer
+    // so the format string MUST be a literal (same contract as the `module`
+    // argument).
+    void set_rate_limit_ms(uint32_t ms);
+    uint32_t get_rate_limit_ms();
+
     // ---- The single log entry point ----------------------------------------
-    // All printf-style wrappers ultimately call this.
+    // All printf-style wrappers ultimately call this. The `_force` variant
+    // bypasses the rate limiter.
     void log_va(uint8_t target, Level lvl, const char* module, const char* fmt, va_list args);
+    void log_va_force(uint8_t target, Level lvl, const char* module, const char* fmt, va_list args);
 
     // Convenience overload for non-printf callers.
     inline void log(uint8_t target, Level lvl, const char* module, const char* fmt, ...)
