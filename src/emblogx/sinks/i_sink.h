@@ -85,7 +85,12 @@ namespace emblogx {
             }
 
         protected:
-            bool show_timestamp_ = false;
+            // Default true: every sink renders the timestamp prefix when
+            // a wall-clock source is registered. The HTTP sink overrides
+            // this to false in its constructor because its JSON payload
+            // already carries `Record::timestamp` as a separate numeric
+            // field.
+            bool show_timestamp_ = true;
     };
 
 }  // namespace emblogx
