@@ -7,11 +7,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>     // strftime / gmtime_r — used for the timestamp prefix
+                     // on both ESP-IDF and host builds.
 
 #ifdef ESP_PLATFORM
 #include <esp_timer.h>
-#else
-#include <ctime>
 #endif
 
 namespace emblogx {
@@ -198,17 +198,38 @@ namespace emblogx {
         return g_sinks[index];
     }
 
-    // ---- Wall clock ---------------------------------------------------------
+    // ---- Time source --------------------------------------------------------
 
-    uint64_t now_ms() {
+    namespace {
+        NowMsFn s_now_ms_provider = nullptr;
+
+        // Built-in default: monotonic since boot. Used whenever no host-
+        // supplied provider has been registered.
+        int64_t default_monotonic_ms() {
 #ifdef ESP_PLATFORM
-        return static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+            return esp_timer_get_time() / 1000;
 #else
-        timespec tsp{};
-        clock_gettime(CLOCK_MONOTONIC, &tsp);
-        return (static_cast<uint64_t>(tsp.tv_sec) * 1000ULL) +
-               (static_cast<uint64_t>(tsp.tv_nsec) / 1000000ULL);
+            timespec tsp{};
+            clock_gettime(CLOCK_MONOTONIC, &tsp);
+            return (static_cast<int64_t>(tsp.tv_sec) * 1000) +
+                   (static_cast<int64_t>(tsp.tv_nsec) / 1000000);
 #endif
+        }
+    }  // namespace
+
+    void set_now_ms_provider(NowMsFn fname) {
+        s_now_ms_provider = fname;
+    }
+
+    NowMsFn get_now_ms_provider() {
+        return s_now_ms_provider;
+    }
+
+    int64_t now_ms() {
+        if (s_now_ms_provider != nullptr) {
+            return s_now_ms_provider();
+        }
+        return default_monotonic_ms();
     }
 
     // ---- Internal log entry point ------------------------------------------
@@ -248,11 +269,50 @@ namespace emblogx {
             const char* level_str = levelName(lvl);
             const char* mod_str = (module != nullptr && module[0] != '\0') ? module : "-";
 
-            int header_len = std::snprintf(line, sizeof(line), "%s[%s][%s] ",
-                                           EMBLOGX_LOG_PREFIX, level_str, mod_str);
+            // Optional "[YYYY-MM-DD HH:MM:SS] " prefix. Two gates:
+            //   1. EMBLOGX_TIMESTAMP_FORMAT must be a non-empty strftime spec.
+            //      Define `-DEMBLOGX_TIMESTAMP_FORMAT=""` to disable globally
+            //      (useful for byte-stable test output).
+            //   2. The current `now_ms()` value must be a real wall-clock
+            //      epoch — we treat values past kWallClockThresholdMs (year
+            //      ~2017 in epoch ms) as wall-clock, anything below that is
+            //      monotonic-since-boot and gets no prefix. This means the
+            //      prefix appears automatically once an NTP-fed provider
+            //      (or any other wall-clock source) is registered, and
+            //      stays absent before that — no "[1970-01-01 00:00:NN]"
+            //      noise sneaks into logs.
+            constexpr int64_t kWallClockThresholdMs = 1'500'000'000'000LL;
+            const int64_t epoch_ms_value = now_ms();
+
+            int prefix_len = 0;
+#ifdef EMBLOGX_TIMESTAMP_FORMAT
+            if (epoch_ms_value > kWallClockThresholdMs &&
+                EMBLOGX_TIMESTAMP_FORMAT[0] != '\0') {
+                const time_t epoch_s = static_cast<time_t>(epoch_ms_value / 1000);
+                struct tm tm_utc{};
+                gmtime_r(&epoch_s, &tm_utc);
+                char inner[24];
+                const size_t inner_len = strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
+                if (inner_len > 0) {
+                    prefix_len = std::snprintf(line, sizeof(line), "[%s] ", inner);
+                    if (prefix_len < 0) {
+                        prefix_len = 0;
+                    }
+                    if (prefix_len >= static_cast<int>(sizeof(line))) {
+                        prefix_len = static_cast<int>(sizeof(line)) - 1;
+                    }
+                }
+            }
+#endif
+
+            int header_len = std::snprintf(line + prefix_len,
+                                           sizeof(line) - static_cast<size_t>(prefix_len),
+                                           "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
             if (header_len < 0) {
                 return;
             }
+            // Combined header = timestamp prefix + level/module header.
+            header_len += prefix_len;
             if (header_len >= static_cast<int>(sizeof(line))) {
                 header_len = static_cast<int>(sizeof(line)) - 1;
             }
@@ -287,7 +347,8 @@ namespace emblogx {
             rec.module = mod_str;
             rec.line = line;
             rec.line_len = static_cast<uint16_t>(total);
-            rec.timestamp = now_ms();
+            rec.timestamp_prefix_len = static_cast<uint16_t>(prefix_len);
+            rec.timestamp = epoch_ms_value; // re-use the value already queried for the prefix to save one call
 
             for (uint8_t i = 0; i < g_sink_count; ++i) {
                 ISink* sink = g_sinks[i];

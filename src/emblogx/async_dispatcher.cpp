@@ -111,6 +111,10 @@ namespace emblogx {
         std::memcpy(dst.line, rec.line, to_copy);
         dst.line[to_copy] = '\0';
         dst.line_len = to_copy;
+        // Clamp to the truncated slot length — the prefix can never exceed
+        // what we actually copied even if rec.line was longer.
+        dst.timestamp_prefix_len =
+                (rec.timestamp_prefix_len <= to_copy) ? rec.timestamp_prefix_len : to_copy;
 
         tail_ = (tail_ + 1) % SLOTS;
         ++count_;
@@ -147,6 +151,7 @@ namespace emblogx {
                 rec.module = slot.module;
                 rec.line = slot.line;
                 rec.line_len = slot.line_len;
+                rec.timestamp_prefix_len = slot.timestamp_prefix_len;
                 rec.timestamp = slot.timestamp;
 
                 if (handler_ != nullptr) {
@@ -196,6 +201,8 @@ namespace emblogx {
         std::memcpy(tmp.line, rec.line, to_copy);
         tmp.line[to_copy] = '\0';
         tmp.line_len = to_copy;
+        tmp.timestamp_prefix_len =
+                (rec.timestamp_prefix_len <= to_copy) ? rec.timestamp_prefix_len : to_copy;
 
         Record forward{};
         forward.target = tmp.target;
@@ -203,6 +210,7 @@ namespace emblogx {
         forward.module = tmp.module;
         forward.line = tmp.line;
         forward.line_len = tmp.line_len;
+        forward.timestamp_prefix_len = tmp.timestamp_prefix_len;
         forward.timestamp = tmp.timestamp;
 
         handler_(forward, ctx_);

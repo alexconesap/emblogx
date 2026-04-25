@@ -556,6 +556,100 @@ emblogx::set_module_level("ota", emblogx::Level::Info);
 emblogx::set_sink_enabled(2, false);
 ```
 
+## Wall-clock timestamps via a pluggable time source
+
+`Record::timestamp` is `int64_t` ms — but its **meaning** depends on which
+time source the host project plugged in:
+
+- **Default** — monotonic since boot. `now_ms()` calls `esp_timer_get_time()`
+  (ESP-IDF) or `clock_gettime(CLOCK_MONOTONIC)` (POSIX). emblogx works
+  out of the box, no extra wiring.
+- **Bridged** — Unix epoch ms. Register a function pointer once at boot
+  and every subsequent record carries wall-clock time:
+
+```cpp
+#include <emblogx/logger_core.h>
+#include <time/time_control.h>      // UngulaCore — only the host project
+                                    // needs this; emblogx itself stays
+                                    // independent of UngulaCore.
+
+void setup() {
+    // ... NTP init, TimeControl::setTimeProvider(...), etc. ...
+
+    // One-line bridge — TimeControl::now is a static method whose
+    // address is just an `int64_t (*)()` pointer.
+    emblogx::set_now_ms_provider(&ungula::TimeControl::now);
+}
+```
+
+The hook is `int64_t (*)()` — function-pointer, not interface — because
+the time source has no state to hold. Cost: one indirect call per log
+record, only when a provider is registered.
+
+### Caveats worth knowing
+
+- **Register before the first log call.** Records emitted across the
+  swap point carry timestamps from different sources and aren't
+  comparable. Boot order: register sinks → register time source →
+  start logging.
+- **`TimeControl::now()` falls back to monotonic when no provider
+  reports valid.** If NTP loses sync mid-run, log timestamps revert to
+  monotonic-since-boot for the duration. The boundary is the host's
+  call to handle, not emblogx's.
+- **Test injection works the same way.** Tests register a scripted
+  function pointer instead of `&TimeControl::now`. No interface to
+  mock, no virtual dispatch.
+
+```cpp
+// In tests:
+int64_t fake_clock() { return 1'700'000'000'123LL; }
+emblogx::set_now_ms_provider(&fake_clock);
+// ... log calls now produce records with timestamp == 1700000000123 ...
+emblogx::set_now_ms_provider(nullptr);   // teardown
+```
+
+### Timestamp prefix in `Record::line`
+
+When the registered time source returns a real wall-clock value, the
+formatter automatically prepends the timestamp to every line:
+
+```text
+[2026-04-23 14:32:11][ICB][INFO][module] message text
+```
+
+So a project that already calls `set_now_ms_provider(&TimeControl::now)`
+gets readable audit-log timestamps in the SD file, the memory ring, and
+stdout — **with zero changes** to its sinks. Before NTP syncs (or with no
+provider registered) the prefix is omitted, so monotonic-since-boot
+values never produce a misleading "[1970-…]" string.
+
+The strftime spec lives in `EMBLOGX_TIMESTAMP_FORMAT` (default
+`"%Y-%m-%d %H:%M:%S"`, UTC). Override at compile time with
+`-DEMBLOGX_TIMESTAMP_FORMAT='"%H:%M:%S.%f"'` for a different shape, or
+`-DEMBLOGX_TIMESTAMP_FORMAT='""'` to disable the prefix unconditionally
+(handy for byte-stable test output).
+
+#### Per-sink opt-out
+
+`ISink` carries a `show_timestamp` flag, default `true`. Toggle it on the
+specific sink that should not include the text prefix — typically a sink
+that already carries the timestamp out-of-band, e.g. the JSON-emitting
+HTTP sink:
+
+```cpp
+my_console_sink.set_show_timestamp(false);   // strip the prefix from this sink only
+```
+
+The HTTP sink defaults the flag to `false` already because its JSON
+payload encodes `Record::timestamp` as a separate numeric field — having
+the prefix in `message` too would be noise. Every other sink defaults to
+`true` so the prefix appears everywhere readable.
+
+The flag is honoured automatically by all sinks via `effective_line()` /
+`effective_line_len()` helpers on `ISink` — the formatter writes one
+buffer, sinks pick which slice to emit. Constant-time, no second format
+pass.
+
 ## Troubleshooting
 
 **Nothing shows up on the serial console.**

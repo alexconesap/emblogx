@@ -29,7 +29,13 @@ namespace emblogx {
     class HttpSink : public ISink {
         public:
             // endpoint_url is borrowed — must outlive the sink.
-            explicit HttpSink(const char* endpoint_url) : url_(endpoint_url) {}
+            explicit HttpSink(const char* endpoint_url) : url_(endpoint_url) {
+                // The JSON payload encodes Record::timestamp as a numeric
+                // field, so a duplicated text prefix inside `message`
+                // would be noise. Hosts that want the prefix in the
+                // `message` field too can call `set_show_timestamp(true)`.
+                set_show_timestamp(false);
+            }
 
             uint8_t capabilities() const override {
                 return Capability::LOG | Capability::AUDIT | Capability::STATUS;

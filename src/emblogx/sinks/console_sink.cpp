@@ -25,7 +25,7 @@ namespace emblogx {
     }
 
     void ConsoleSink::write(const Record& rec) {
-        std::fwrite(rec.line, 1, rec.line_len, stdout);
+        std::fwrite(effective_line(rec), 1, effective_line_len(rec), stdout);
         std::fputc('\n', stdout);
     }
 

@@ -59,13 +59,38 @@ namespace emblogx {
     // Get a sink pointer by index. Returns nullptr if out of range.
     ISink* sink_at(uint8_t index);
 
-    // ---- Wall clock --------------------------------------------------------
+    // ---- Time source -------------------------------------------------------
+    //
+    // emblogx is intentionally independent of any time-management library —
+    // a logger should keep working even when other subsystems are not
+    // present or are broken. The default `now_ms()` implementation returns
+    // monotonic milliseconds since boot (esp_timer on ESP-IDF,
+    // clock_gettime(CLOCK_MONOTONIC) on POSIX).
+    //
+    // To carry wall-clock timestamps in log records (e.g. once NTP is up),
+    // the host project plugs in its own time source via
+    // `set_now_ms_provider()`. One-line bridge to UngulaCore's TimeControl:
+    //
+    //   emblogx::set_now_ms_provider(&ungula::TimeControl::now);
+    //
+    // The hook is `int64_t (*)()` — signed to match the rest of the
+    // ecosystem (POSIX `time_t`, ESP-IDF timers, UngulaCore's TimeControl).
+
+    using NowMsFn = int64_t (*)();
+
+    // Replace the time source. Pass nullptr to revert to the built-in
+    // monotonic-since-boot default. Register at boot, before producing
+    // any log records — records emitted before and after the swap will
+    // carry timestamps from different sources and won't be comparable.
+    void set_now_ms_provider(NowMsFn fname);
+
+    // Currently registered provider, or nullptr if the default is in use.
+    NowMsFn get_now_ms_provider();
 
     // Returns a millisecond timestamp suitable for the Record::timestamp
-    // field. 64-bit so it never wraps for the lifetime of any realistic
-    // device. Default implementation uses esp_timer on ESP-IDF and
-    // clock_gettime(CLOCK_MONOTONIC) on POSIX.
-    uint64_t now_ms();
+    // field. Goes through the registered provider if one was installed,
+    // otherwise the built-in monotonic source.
+    int64_t now_ms();
 
     // ---- Rate limiting -----------------------------------------------------
     // Drops repeated calls from the same call site (same `fmt` pointer) when

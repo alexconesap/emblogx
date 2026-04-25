@@ -70,18 +70,18 @@ namespace emblogx {
             static constexpr uint32_t SLOT_BYTES = EMBLOGX_LINE_MAX;
             static constexpr uint32_t SLOTS = EMBLOGX_QUEUE_SLOTS;
 
-            // One slot = one fully formatted line + the metadata fields we need
-            // at consumption time. The timestamp is 64-bit so it matches the
-            // Record::timestamp width and never wraps for the lifetime of the
-            // device. Truncating to 32-bit here would silently wrap every ~49
-            // days for async sinks, which is exactly what we changed Record to
-            // avoid.
+            // One slot = one fully formatted line + the metadata fields we
+            // need at consumption time. The timestamp is signed 64-bit to
+            // match Record::timestamp exactly — same width and signedness so
+            // an async sink that re-emits a Slot can store the value back
+            // into a Record without conversion.
             struct Slot {
                     uint8_t target;
                     Level level;
                     const char* module;  // stable literal pointer
-                    uint64_t timestamp;
+                    int64_t timestamp;
                     uint16_t line_len;
+                    uint16_t timestamp_prefix_len;
                     char line[SLOT_BYTES];
             };
 

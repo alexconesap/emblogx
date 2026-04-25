@@ -55,6 +55,21 @@
 #define EMBLOGX_LOG_PREFIX "[LOG]"
 #endif
 
+// strftime spec used to render the per-record timestamp prefix that
+// precedes EMBLOGX_LOG_PREFIX. Default is ISO-8601 UTC, wrapped in `[ ]`
+// by the formatter so a fully-rendered line looks like:
+//   "[2026-04-23 14:32:11][ICB][INFO][module] message"
+//
+// The prefix only appears when the registered time source returns a
+// real wall-clock value (above the threshold defined in logger_core.cpp).
+// Monotonic-since-boot values produce no prefix, so projects that haven't
+// installed an NTP / wall-clock provider see exactly the same output as
+// before. Define to "" to disable the prefix unconditionally — useful for
+// unit tests that want byte-stable output.
+#ifndef EMBLOGX_TIMESTAMP_FORMAT
+#define EMBLOGX_TIMESTAMP_FORMAT "%Y-%m-%d %H:%M:%S"
+#endif
+
 // ---- Default visibility for debug -----------------------------------------
 // Define EMBLOGX_DEBUG_ENABLED to compile log_debug() at level DEBUG. When
 // not defined, log_debug() is still callable but elided to a no-op.

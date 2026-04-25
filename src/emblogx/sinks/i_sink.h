@@ -47,6 +47,45 @@ namespace emblogx {
             virtual const char* name() const {
                 return "sink";
             }
+
+            // ---- Timestamp prefix gating ----------------------------------
+            //
+            // The formatter in logger_core.cpp prepends
+            // "[YYYY-MM-DD HH:MM:SS] " to `Record::line` whenever the
+            // installed time source returns a real wall-clock value. By
+            // default every sink emits that prefix; a sink can opt out at
+            // runtime via `set_show_timestamp(false)` — useful for sinks
+            // that already carry the timestamp out-of-band (e.g. the HTTP
+            // sink encodes `Record::timestamp` as a JSON field, so a
+            // duplicated text prefix would be noise).
+
+            void set_show_timestamp(bool enabled) {
+                show_timestamp_ = enabled;
+            }
+
+            virtual bool show_timestamp() const {
+                return show_timestamp_;
+            }
+
+            // Helpers — every concrete sink writes `effective_line` /
+            // `effective_line_len` instead of `rec.line` / `rec.line_len`
+            // so the per-sink flag is honoured automatically. Constant-
+            // time: just a pointer arithmetic / subtraction.
+            const char* effective_line(const Record& rec) const {
+                if (show_timestamp() || rec.timestamp_prefix_len == 0) {
+                    return rec.line;
+                }
+                return rec.line + rec.timestamp_prefix_len;
+            }
+            uint16_t effective_line_len(const Record& rec) const {
+                if (show_timestamp() || rec.timestamp_prefix_len == 0) {
+                    return rec.line_len;
+                }
+                return static_cast<uint16_t>(rec.line_len - rec.timestamp_prefix_len);
+            }
+
+        protected:
+            bool show_timestamp_ = false;
     };
 
 }  // namespace emblogx

@@ -182,7 +182,12 @@ namespace emblogx {
         if (rec.line == nullptr || rec.line_len == 0) {
             return;
         }
-        put_bytes(rec.line, rec.line_len);
+        const char* out = effective_line(rec);
+        const uint16_t out_len = effective_line_len(rec);
+        if (out_len == 0) {
+            return;
+        }
+        put_bytes(out, out_len);
         put_byte('\n');
     }
 

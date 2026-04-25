@@ -200,7 +200,7 @@ namespace emblogx {
             return;
         }
 
-        self->file_->write(rec.line, rec.line_len);
+        self->file_->write(self->effective_line(rec), self->effective_line_len(rec));
         const char newline = '\n';
         self->file_->write(&newline, 1);
         // Flush every record — fflush + fsync pushes through FAT block cache

@@ -124,8 +124,16 @@ namespace emblogx {
         }
         n += n2;
 
-        for (uint16_t i = 0; i < rec.line_len; ++i) {
-            if (!json_escape_byte(body, sizeof(body), &n, rec.line[i])) {
+        // The HTTP sink always emits `Record::timestamp` as its own JSON
+        // field, so a duplicated text prefix in `message` would be noise.
+        // `effective_line()` honours `set_show_timestamp()` — the HTTP
+        // sink defaults that flag to false (see the constructor) and strips
+        // the prefix; if a host re-enables it, the prefix shows up in the
+        // message string too.
+        const char* msg = effective_line(rec);
+        const uint16_t msg_len = effective_line_len(rec);
+        for (uint16_t i = 0; i < msg_len; ++i) {
+            if (!json_escape_byte(body, sizeof(body), &n, msg[i])) {
                 return;
             }
         }

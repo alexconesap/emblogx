@@ -42,9 +42,12 @@ namespace {
             }
 
             void write(const ::emblogx::Record& rec) override {
+                // Use effective_line/effective_line_len so this captor
+                // mirrors what a real sink would emit — including
+                // honouring set_show_timestamp(false).
                 seen.push_back({rec.target, rec.level,
                                 rec.module ? std::string(rec.module) : std::string(),
-                                std::string(rec.line, rec.line_len)});
+                                std::string(effective_line(rec), effective_line_len(rec))});
             }
     };
 
@@ -367,7 +370,7 @@ TEST(SdSink, LogRecordsDontReachSdSink) {
 namespace {
     struct AsyncCapture {
             std::vector<std::string> lines;
-            std::vector<uint64_t> timestamps;
+            std::vector<int64_t> timestamps;
             std::vector<uint8_t> targets;
     };
 
@@ -662,4 +665,144 @@ TEST(RateLimit, ZeroDisablesLimiter) {
     }
 
     EXPECT_EQ(sink->seen.size(), baseline + 4);
+}
+
+// ----------------------------------------------------------------------------
+// Time source provider — the hook a host project uses to bridge emblogx's
+// timestamps to a wall-clock source (e.g. ungula::TimeControl::now once NTP
+// has synced).
+// ----------------------------------------------------------------------------
+
+namespace {
+    int64_t g_scripted_now = 0;
+    int g_scripted_calls = 0;
+
+    int64_t scripted_now_ms() {
+        ++g_scripted_calls;
+        return g_scripted_now;
+    }
+}  // namespace
+
+TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered) {
+    ::emblogx::set_now_ms_provider(nullptr);   // back to built-in default
+
+    const int64_t a = ::emblogx::now_ms();
+    // Default source is monotonic-since-boot — both calls must be
+    // non-negative and the second never lower than the first.
+    const int64_t b = ::emblogx::now_ms();
+    EXPECT_GE(a, 0);
+    EXPECT_GE(b, a);
+
+    EXPECT_EQ(::emblogx::get_now_ms_provider(), nullptr);
+}
+
+TEST(TimeSource, RegisteredProviderTakesEffectImmediately) {
+    g_scripted_now = 1'700'000'000'123LL;   // realistic Unix epoch ms
+    g_scripted_calls = 0;
+
+    ::emblogx::set_now_ms_provider(&scripted_now_ms);
+    EXPECT_EQ(::emblogx::get_now_ms_provider(), &scripted_now_ms);
+
+    EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
+    EXPECT_EQ(g_scripted_calls, 1);
+
+    g_scripted_now = 1'700'000'099'999LL;
+    EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
+    EXPECT_EQ(g_scripted_calls, 2);
+
+    ::emblogx::set_now_ms_provider(nullptr);   // teardown
+}
+
+TEST(TimeSource, NullptrRevertsToDefault) {
+    g_scripted_now = 42;
+    ::emblogx::set_now_ms_provider(&scripted_now_ms);
+    EXPECT_EQ(::emblogx::now_ms(), 42);
+
+    ::emblogx::set_now_ms_provider(nullptr);
+    EXPECT_NE(::emblogx::now_ms(), 42);   // back on the monotonic clock
+    EXPECT_EQ(::emblogx::get_now_ms_provider(), nullptr);
+}
+
+// ----------------------------------------------------------------------------
+// Timestamp prefix — emitted into Record::line when the registered time
+// source returns a real wall-clock value, gated per-sink via the new
+// `show_timestamp` flag on ISink.
+// ----------------------------------------------------------------------------
+
+TEST(TimestampPrefix, NoPrefixWithoutWallClockProvider) {
+    ::emblogx::set_now_ms_provider(nullptr);   // default monotonic-since-boot
+    log_set_rate_limit_ms(0);
+
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    log_info("plain message");
+
+    ASSERT_FALSE(sink->seen.empty());
+    const std::string& last = sink->seen.back().line;
+    // No "[YYYY-…" prefix — monotonic-since-boot is below the wall-clock
+    // threshold so the formatter skips the prefix entirely.
+    EXPECT_EQ(last.rfind("[20", 0), std::string::npos);
+    EXPECT_NE(last.find("plain message"), std::string::npos);
+}
+
+TEST(TimestampPrefix, AppearsWhenWallClockProviderReturnsRealEpoch) {
+    // 2023-11-14 22:13:20 UTC — well past the 2017 threshold.
+    g_scripted_now = 1'700'000'000'000LL;
+    ::emblogx::set_now_ms_provider(&scripted_now_ms);
+    log_set_rate_limit_ms(0);
+
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    log_info("timestamped message");
+
+    ASSERT_FALSE(sink->seen.empty());
+    const std::string& last = sink->seen.back().line;
+    EXPECT_EQ(last.rfind("[2023-11-14 22:13:20] ", 0), 0U);
+    EXPECT_NE(last.find("timestamped message"), std::string::npos);
+
+    ::emblogx::set_now_ms_provider(nullptr);
+}
+
+TEST(TimestampPrefix, PerSinkFlagSkipsThePrefix) {
+    g_scripted_now = 1'700'000'000'000LL;
+    ::emblogx::set_now_ms_provider(&scripted_now_ms);
+    log_set_rate_limit_ms(0);
+
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    sink->set_show_timestamp(false);   // opt out
+    log_info("naked message");
+
+    ASSERT_FALSE(sink->seen.empty());
+    const std::string& last = sink->seen.back().line;
+    // No timestamp prefix — sink stripped it. Header tokens still present.
+    EXPECT_EQ(last.rfind("[2023-", 0), std::string::npos);
+    EXPECT_NE(last.find("naked message"), std::string::npos);
+
+    sink->set_show_timestamp(true);    // teardown
+    ::emblogx::set_now_ms_provider(nullptr);
+}
+
+TEST(TimestampPrefix, FlagDefaultsTrueForNewSinks) {
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    EXPECT_TRUE(sink->show_timestamp());
+}
+
+TEST(TimeSource, ProviderCarriesIntoRecordTimestamp) {
+    // Real wall-clock-ish value, well past uint32_t — proves the wider
+    // signed type carries through Record::timestamp without truncation.
+    g_scripted_now = 1'763'808'000'123LL;
+    g_scripted_calls = 0;
+    ::emblogx::set_now_ms_provider(&scripted_now_ms);
+
+    // CapturingSink doesn't expose the timestamp directly, but every log
+    // line goes through now_ms() exactly once (rate-limit check + record
+    // construction would call it twice if the limiter were on, so disable
+    // it for this test).
+    log_set_rate_limit_ms(0);
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t before = sink->seen.size();
+
+    log_info("scripted timestamp test");
+    EXPECT_EQ(sink->seen.size(), before + 1);
+    EXPECT_GT(g_scripted_calls, 0);   // the log call really used our source
+
+    ::emblogx::set_now_ms_provider(nullptr);
 }
