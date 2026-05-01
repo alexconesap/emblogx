@@ -90,37 +90,36 @@ namespace emblogx {
 
 // ===== LOG (operational) ===================================================
 
-#define EMBLOGX_DEFINE_WRAPPERS(NAME, TARGET_BITS, LEVEL)                             \
-    inline void NAME(const char* fmt, ...) __attribute__((format(printf, 1, 2)));     \
-    inline void NAME(const char* fmt, ...) {                                          \
-        va_list args;                                                                 \
-        va_start(args, fmt);                                                          \
-        ::emblogx::log_va((TARGET_BITS), (LEVEL), nullptr, fmt, args);                \
-        va_end(args);                                                                 \
-    }                                                                                 \
-    inline void NAME##_m(const char* module, const char* fmt, ...)                    \
-            __attribute__((format(printf, 2, 3)));                                    \
-    inline void NAME##_m(const char* module, const char* fmt, ...) {                  \
-        va_list args;                                                                 \
-        va_start(args, fmt);                                                          \
-        ::emblogx::log_va((TARGET_BITS), (LEVEL), module, fmt, args);                 \
-        va_end(args);                                                                 \
-    }                                                                                 \
-    inline void NAME##_force(const char* fmt, ...)                                    \
-            __attribute__((format(printf, 1, 2)));                                    \
-    inline void NAME##_force(const char* fmt, ...) {                                  \
-        va_list args;                                                                 \
-        va_start(args, fmt);                                                          \
-        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), nullptr, fmt, args);          \
-        va_end(args);                                                                 \
-    }                                                                                 \
-    inline void NAME##_force_m(const char* module, const char* fmt, ...)              \
-            __attribute__((format(printf, 2, 3)));                                    \
-    inline void NAME##_force_m(const char* module, const char* fmt, ...) {            \
-        va_list args;                                                                 \
-        va_start(args, fmt);                                                          \
-        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), module, fmt, args);           \
-        va_end(args);                                                                 \
+#define EMBLOGX_DEFINE_WRAPPERS(NAME, TARGET_BITS, LEVEL)                                 \
+    inline void NAME(const char* fmt, ...) __attribute__((format(printf, 1, 2)));         \
+    inline void NAME(const char* fmt, ...) {                                              \
+        va_list args;                                                                     \
+        va_start(args, fmt);                                                              \
+        ::emblogx::log_va((TARGET_BITS), (LEVEL), nullptr, fmt, args);                    \
+        va_end(args);                                                                     \
+    }                                                                                     \
+    inline void NAME##_m(const char* module, const char* fmt, ...)                        \
+            __attribute__((format(printf, 2, 3)));                                        \
+    inline void NAME##_m(const char* module, const char* fmt, ...) {                      \
+        va_list args;                                                                     \
+        va_start(args, fmt);                                                              \
+        ::emblogx::log_va((TARGET_BITS), (LEVEL), module, fmt, args);                     \
+        va_end(args);                                                                     \
+    }                                                                                     \
+    inline void NAME##_force(const char* fmt, ...) __attribute__((format(printf, 1, 2))); \
+    inline void NAME##_force(const char* fmt, ...) {                                      \
+        va_list args;                                                                     \
+        va_start(args, fmt);                                                              \
+        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), nullptr, fmt, args);              \
+        va_end(args);                                                                     \
+    }                                                                                     \
+    inline void NAME##_force_m(const char* module, const char* fmt, ...)                  \
+            __attribute__((format(printf, 2, 3)));                                        \
+    inline void NAME##_force_m(const char* module, const char* fmt, ...) {                \
+        va_list args;                                                                     \
+        va_start(args, fmt);                                                              \
+        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), module, fmt, args);               \
+        va_end(args);                                                                     \
     }
 
 // LOG ----------------------------------------------------------------------

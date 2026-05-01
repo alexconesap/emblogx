@@ -7,8 +7,8 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <ctime>     // strftime / gmtime_r — used for the timestamp prefix
-                     // on both ESP-IDF and host builds.
+#include <ctime>  // strftime / gmtime_r — used for the timestamp prefix
+                  // on both ESP-IDF and host builds.
 
 #ifdef ESP_PLATFORM
 #include <esp_timer.h>
@@ -286,13 +286,13 @@ namespace emblogx {
 
             int prefix_len = 0;
 #ifdef EMBLOGX_TIMESTAMP_FORMAT
-            if (epoch_ms_value > kWallClockThresholdMs &&
-                EMBLOGX_TIMESTAMP_FORMAT[0] != '\0') {
+            if (epoch_ms_value > kWallClockThresholdMs && EMBLOGX_TIMESTAMP_FORMAT[0] != '\0') {
                 const time_t epoch_s = static_cast<time_t>(epoch_ms_value / 1000);
                 struct tm tm_utc{};
                 gmtime_r(&epoch_s, &tm_utc);
                 char inner[24];
-                const size_t inner_len = strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
+                const size_t inner_len =
+                        strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
                 if (inner_len > 0) {
                     prefix_len = std::snprintf(line, sizeof(line), "[%s] ", inner);
                     if (prefix_len < 0) {
@@ -305,9 +305,9 @@ namespace emblogx {
             }
 #endif
 
-            int header_len = std::snprintf(line + prefix_len,
-                                           sizeof(line) - static_cast<size_t>(prefix_len),
-                                           "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
+            int header_len =
+                    std::snprintf(line + prefix_len, sizeof(line) - static_cast<size_t>(prefix_len),
+                                  "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
             if (header_len < 0) {
                 return;
             }
@@ -325,9 +325,9 @@ namespace emblogx {
             // want to walk the args a second time.
             va_list args_copy;
             va_copy(args_copy, args);
-            int body_len = std::vsnprintf(line + header_len,
-                                          sizeof(line) - static_cast<size_t>(header_len),
-                                          fmt, args_copy);
+            int body_len =
+                    std::vsnprintf(line + header_len,
+                                   sizeof(line) - static_cast<size_t>(header_len), fmt, args_copy);
             va_end(args_copy);
             if (body_len < 0) {
                 return;
@@ -348,7 +348,8 @@ namespace emblogx {
             rec.line = line;
             rec.line_len = static_cast<uint16_t>(total);
             rec.timestamp_prefix_len = static_cast<uint16_t>(prefix_len);
-            rec.timestamp = epoch_ms_value; // re-use the value already queried for the prefix to save one call
+            rec.timestamp = epoch_ms_value;  // re-use the value already queried for the prefix to
+                                             // save one call
 
             for (uint8_t i = 0; i < g_sink_count; ++i) {
                 ISink* sink = g_sinks[i];

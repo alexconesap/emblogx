@@ -569,7 +569,7 @@ TEST(RateLimit, TableEvictionStillThrottlesActiveSites) {
     log_set_rate_limit_ms(10'000);
 
     // Warm one site we want to stay throttled.
-    log_info("warm site");                          // lands
+    log_info("warm site");  // lands
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     // Flood the table with 30 distinct fmt pointers — each is a separate
@@ -641,15 +641,15 @@ TEST(RateLimit, ForceVariantDoesNotResetTheRegularSlot) {
 
     log_set_rate_limit_ms(50);
 
-    log_info("mixed %d", 0);          // lands, opens window
-    log_info_force("mixed %d", 1);    // forced: lands, must NOT touch slot
-    log_info_force("mixed %d", 2);    // forced: lands
-    log_info("mixed %d", 3);          // within window: dropped
+    log_info("mixed %d", 0);        // lands, opens window
+    log_info_force("mixed %d", 1);  // forced: lands, must NOT touch slot
+    log_info_force("mixed %d", 2);  // forced: lands
+    log_info("mixed %d", 3);        // within window: dropped
     EXPECT_EQ(sink->seen.size(), baseline + 3);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-    log_info("mixed %d", 4);          // window expired: lands
+    log_info("mixed %d", 4);  // window expired: lands
     EXPECT_EQ(sink->seen.size(), baseline + 4);
 
     log_set_rate_limit_ms(0);
@@ -684,7 +684,7 @@ namespace {
 }  // namespace
 
 TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered) {
-    ::emblogx::set_now_ms_provider(nullptr);   // back to built-in default
+    ::emblogx::set_now_ms_provider(nullptr);  // back to built-in default
 
     const int64_t a = ::emblogx::now_ms();
     // Default source is monotonic-since-boot — both calls must be
@@ -697,7 +697,7 @@ TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered) {
 }
 
 TEST(TimeSource, RegisteredProviderTakesEffectImmediately) {
-    g_scripted_now = 1'700'000'000'123LL;   // realistic Unix epoch ms
+    g_scripted_now = 1'700'000'000'123LL;  // realistic Unix epoch ms
     g_scripted_calls = 0;
 
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
@@ -710,7 +710,7 @@ TEST(TimeSource, RegisteredProviderTakesEffectImmediately) {
     EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
     EXPECT_EQ(g_scripted_calls, 2);
 
-    ::emblogx::set_now_ms_provider(nullptr);   // teardown
+    ::emblogx::set_now_ms_provider(nullptr);  // teardown
 }
 
 TEST(TimeSource, NullptrRevertsToDefault) {
@@ -719,7 +719,7 @@ TEST(TimeSource, NullptrRevertsToDefault) {
     EXPECT_EQ(::emblogx::now_ms(), 42);
 
     ::emblogx::set_now_ms_provider(nullptr);
-    EXPECT_NE(::emblogx::now_ms(), 42);   // back on the monotonic clock
+    EXPECT_NE(::emblogx::now_ms(), 42);  // back on the monotonic clock
     EXPECT_EQ(::emblogx::get_now_ms_provider(), nullptr);
 }
 
@@ -730,7 +730,7 @@ TEST(TimeSource, NullptrRevertsToDefault) {
 // ----------------------------------------------------------------------------
 
 TEST(TimestampPrefix, NoPrefixWithoutWallClockProvider) {
-    ::emblogx::set_now_ms_provider(nullptr);   // default monotonic-since-boot
+    ::emblogx::set_now_ms_provider(nullptr);  // default monotonic-since-boot
     log_set_rate_limit_ms(0);
 
     auto* sink = fresh_sink(::emblogx::Capability::LOG);
@@ -767,7 +767,7 @@ TEST(TimestampPrefix, PerSinkFlagSkipsThePrefix) {
     log_set_rate_limit_ms(0);
 
     auto* sink = fresh_sink(::emblogx::Capability::LOG);
-    sink->set_show_timestamp(false);   // opt out
+    sink->set_show_timestamp(false);  // opt out
     log_info("naked message");
 
     ASSERT_FALSE(sink->seen.empty());
@@ -776,7 +776,7 @@ TEST(TimestampPrefix, PerSinkFlagSkipsThePrefix) {
     EXPECT_EQ(last.rfind("[2023-", 0), std::string::npos);
     EXPECT_NE(last.find("naked message"), std::string::npos);
 
-    sink->set_show_timestamp(true);    // teardown
+    sink->set_show_timestamp(true);  // teardown
     ::emblogx::set_now_ms_provider(nullptr);
 }
 
@@ -802,7 +802,7 @@ TEST(TimeSource, ProviderCarriesIntoRecordTimestamp) {
 
     log_info("scripted timestamp test");
     EXPECT_EQ(sink->seen.size(), before + 1);
-    EXPECT_GT(g_scripted_calls, 0);   // the log call really used our source
+    EXPECT_GT(g_scripted_calls, 0);  // the log call really used our source
 
     ::emblogx::set_now_ms_provider(nullptr);
 }

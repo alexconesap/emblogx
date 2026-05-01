@@ -62,14 +62,14 @@ namespace emblogx {
             // A sink with `show_timestamp() == false` skips this many
             // bytes when emitting `line` — see ISink::effective_line().
             uint16_t timestamp_prefix_len;
-            int64_t timestamp;   // milliseconds — meaning depends on the
-                                 // installed time-source provider:
-                                 //   - default: monotonic since boot
-                                 //   - bridged: Unix epoch ms (e.g. via
-                                 //     `set_now_ms_provider(&TimeControl::now)`)
-                                 // Signed 64-bit so it never wraps and so
-                                 // diffs between two records produce a
-                                 // sane signed result.
+            int64_t timestamp;  // milliseconds — meaning depends on the
+                                // installed time-source provider:
+                                //   - default: monotonic since boot
+                                //   - bridged: Unix epoch ms (e.g. via
+                                //     `set_now_ms_provider(&TimeControl::now)`)
+                                // Signed 64-bit so it never wraps and so
+                                // diffs between two records produce a
+                                // sane signed result.
     };
 
     // ---- Helpers ------------------------------------------------------------
