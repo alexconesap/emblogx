@@ -574,11 +574,11 @@ time source the host project plugged in:
                                     // independent of UngulaCore.
 
 void setup() {
-    // ... NTP init, TimeControl::setTimeProvider(...), etc. ...
+    // ... NTP init, ungula::core::time::setTimeProvider(...), etc. ...
 
-    // One-line bridge — TimeControl::now is a static method whose
+    // One-line bridge — ungula::core::time::now is a static method whose
     // address is just an `int64_t (*)()` pointer.
-    emblogx::set_now_ms_provider(&ungula::TimeControl::now);
+    emblogx::set_now_ms_provider(&ungula::core::time::now);
 }
 ```
 
@@ -592,12 +592,12 @@ record, only when a provider is registered.
   swap point carry timestamps from different sources and aren't
   comparable. Boot order: register sinks → register time source →
   start logging.
-- **`TimeControl::now()` falls back to monotonic when no provider
+- **`ungula::core::time::now()` falls back to monotonic when no provider
   reports valid.** If NTP loses sync mid-run, log timestamps revert to
   monotonic-since-boot for the duration. The boundary is the host's
   call to handle, not emblogx's.
 - **Test injection works the same way.** Tests register a scripted
-  function pointer instead of `&TimeControl::now`. No interface to
+  function pointer instead of `&ungula::core::time::now`. No interface to
   mock, no virtual dispatch.
 
 ```cpp
@@ -617,7 +617,7 @@ formatter automatically prepends the timestamp to every line:
 [2026-04-23 14:32:11][ICB][INFO][module] message text
 ```
 
-So a project that already calls `set_now_ms_provider(&TimeControl::now)`
+So a project that already calls `set_now_ms_provider(&ungula::core::time::now)`
 gets readable audit-log timestamps in the SD file, the memory ring, and
 stdout — **with zero changes** to its sinks. Before NTP syncs (or with no
 provider registered) the prefix is omitted, so monotonic-since-boot

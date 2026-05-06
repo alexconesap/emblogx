@@ -69,12 +69,12 @@ namespace emblogx {
     //
     // To carry wall-clock timestamps in log records (e.g. once NTP is up),
     // the host project plugs in its own time source via
-    // `set_now_ms_provider()`. One-line bridge to UngulaCore's TimeControl:
+    // `set_now_ms_provider()`. One-line bridge to UngulaCore's time API:
     //
-    //   emblogx::set_now_ms_provider(&ungula::core::time::TimeControl::now);
+    //   emblogx::set_now_ms_provider(&ungula::core::time::now);
     //
     // The hook is `int64_t (*)()` — signed to match the rest of the
-    // ecosystem (POSIX `time_t`, ESP-IDF timers, UngulaCore's TimeControl).
+    // ecosystem (POSIX `time_t`, ESP-IDF timers, UngulaCore's time API).
 
     using NowMsFn = int64_t (*)();
 

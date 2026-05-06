@@ -202,7 +202,7 @@ bypass; Error level always bypasses.
 #include <ungula/core/time/time_control.h>
 
 void setup() {
-    emblogx::set_now_ms_provider(&ungula::TimeControl::now);
+    emblogx::set_now_ms_provider(&ungula::core::time::now);
     // …register sinks, init()
 }
 ```

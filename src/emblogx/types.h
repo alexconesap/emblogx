@@ -66,7 +66,7 @@ namespace emblogx {
                                 // installed time-source provider:
                                 //   - default: monotonic since boot
                                 //   - bridged: Unix epoch ms (e.g. via
-                                //     `set_now_ms_provider(&TimeControl::now)`)
+                                //     `set_now_ms_provider(&ungula::core::time::now)`)
                                 // Signed 64-bit so it never wraps and so
                                 // diffs between two records produce a
                                 // sane signed result.

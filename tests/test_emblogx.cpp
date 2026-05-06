@@ -669,7 +669,7 @@ TEST(RateLimit, ZeroDisablesLimiter) {
 
 // ----------------------------------------------------------------------------
 // Time source provider — the hook a host project uses to bridge emblogx's
-// timestamps to a wall-clock source (e.g. ungula::core::time::TimeControl::now once NTP
+// timestamps to a wall-clock source (e.g. ungula::core::time::now once NTP
 // has synced).
 // ----------------------------------------------------------------------------
 
