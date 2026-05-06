@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstring>
 
-#include <http/http_client.h>
+#include <ungula/net/http/http_client.h>
 
 namespace emblogx {
 
@@ -146,7 +146,7 @@ namespace emblogx {
         // Fire and forget. We deliberately ignore the result code — the only
         // thing the caller can do with a failure here is log it, which would
         // recurse into us. The next status push from the host will retry.
-        (void)ungula::http::httpPost(self->url_, body, n);
+        (void)ungula::net::http::httpPost(self->url_, body, n);
     }
 
 }  // namespace emblogx

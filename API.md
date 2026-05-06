@@ -72,7 +72,7 @@ literals — only the pointer is stored.
 #include <emblogx/logger.h>
 #include <emblogx/sinks/console_sink.h>
 #include <emblogx/sinks/sd_sink.h>
-#include <ungula_sd.h>
+#include <ungula/sd.h>
 
 extern ::ungula::sd::IFileSystem& host_sd_filesystem();
 
@@ -199,7 +199,7 @@ bypass; Error level always bypasses.
 ```cpp
 #include <emblogx/logger.h>
 #include <emblogx/logger_core.h>
-#include <time/time_control.h>
+#include <ungula/core/time/time_control.h>
 
 void setup() {
     emblogx::set_now_ms_provider(&ungula::TimeControl::now);

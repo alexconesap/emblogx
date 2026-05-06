@@ -387,7 +387,7 @@ traceability.
 #include <emblogx/sinks/console_sink.h>
 #include <emblogx/sinks/memory_sink.h>
 #include <emblogx/sinks/sd_sink.h>
-#include <sd/platform/esp/esp_sd_filesystem.h>
+#include <ungula/sd/platform/esp/esp_sd_filesystem.h>
 
 using namespace ungula::sd;
 
@@ -447,7 +447,7 @@ complete picture. Same pattern as recipe 4 plus HTTP forwarding to the cloud.
 #include <emblogx/sinks/memory_sink.h>
 #include <emblogx/sinks/sd_sink.h>
 #include <emblogx/sinks/http_sink.h>
-#include <sd/platform/esp/esp_sd_filesystem.h>
+#include <ungula/sd/platform/esp/esp_sd_filesystem.h>
 
 using namespace ungula::sd;
 
@@ -569,7 +569,7 @@ time source the host project plugged in:
 
 ```cpp
 #include <emblogx/logger_core.h>
-#include <time/time_control.h>      // UngulaCore — only the host project
+#include <ungula/core/time/time_control.h>      // UngulaCore — only the host project
                                     // needs this; emblogx itself stays
                                     // independent of UngulaCore.
 

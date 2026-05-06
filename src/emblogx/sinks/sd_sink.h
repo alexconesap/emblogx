@@ -33,8 +33,8 @@
 #include "../config.h"
 #include "i_sink.h"
 
-#include <sd/i_file.h>
-#include <sd/i_filesystem.h>
+#include <ungula/sd/i_file.h>
+#include <ungula/sd/i_filesystem.h>
 
 namespace emblogx {
 

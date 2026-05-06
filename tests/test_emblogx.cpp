@@ -255,8 +255,8 @@ TEST(SinkToggle, DisabledSinksDontReceive) {
 // ----------------------------------------------------------------------------
 #if EMBLOGX_ENABLE_SINK_SD
 #include "emblogx/sinks/sd_sink.h"
-#include "sd/i_file.h"
-#include "sd/i_filesystem.h"
+#include "ungula/sd/i_file.h"
+#include "ungula/sd/i_filesystem.h"
 
 namespace {
 
@@ -669,7 +669,7 @@ TEST(RateLimit, ZeroDisablesLimiter) {
 
 // ----------------------------------------------------------------------------
 // Time source provider — the hook a host project uses to bridge emblogx's
-// timestamps to a wall-clock source (e.g. ungula::TimeControl::now once NTP
+// timestamps to a wall-clock source (e.g. ungula::core::time::TimeControl::now once NTP
 // has synced).
 // ----------------------------------------------------------------------------
 

@@ -15,8 +15,8 @@
 
 // The SD sink depends on lib_sd (IFileSystem / IFile interfaces). Pull in
 // its umbrella header first so the Arduino build system discovers lib_sd
-// before sd_sink.h tries to include <sd/i_file.h>.
+// before sd_sink.h tries to include <ungula/sd/i_file.h>.
 #if EMBLOGX_ENABLE_SINK_SD
-#include <ungula_sd.h>
+#include <ungula/sd.h>
 #endif
 #include "emblogx/sinks/sd_sink.h"
