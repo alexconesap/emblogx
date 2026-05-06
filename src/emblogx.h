@@ -17,6 +17,6 @@
 // its umbrella header first so the Arduino build system discovers lib_sd
 // before sd_sink.h tries to include <ungula/sd/i_file.h>.
 #if EMBLOGX_ENABLE_SINK_SD
-#include <ungula/sd.h>
+#include <ungula_sd.h>
 #endif
 #include "emblogx/sinks/sd_sink.h"
