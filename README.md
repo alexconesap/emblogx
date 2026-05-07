@@ -72,6 +72,8 @@ arguments follow, no module name needed.
 `log_set_rate_limit_ms(ms)` — throttles non-error messages. Errors always go through. Really useful to avoid injecting dozens of messages every second to the Serial port or to any external/slow sink.
 
 ```cpp
+#include <emblogx/logger.h>
+
 log_set_rate_limit_ms(1000);
 
 void loop() {
@@ -86,6 +88,8 @@ The check is keyed by the format-string pointer (format strings are literals), s
 When a specific line must never be dropped — boot banners, one-shot state transitions, startup messages — use the `_force` / `_force_m` variants:
 
 ```cpp
+#include <emblogx/logger.h>
+
 log_info_force(">>>> Boot ok");
 log_info_force_m("setup", ">>>> Firmware Version: %s", VERSION);
 ```
@@ -98,6 +102,8 @@ Want to tag the line with a subsystem name (so you can filter in the field)?
 Add the `_m` suffix and pass the module as the first argument:
 
 ```cpp
+#include <emblogx/logger.h>
+
 log_info_m("wifi", "Connected, ip=%s", ip);
 log_error_m("ota", "Firmware mismatch: have %s want %s", have, want);
 ```
@@ -106,6 +112,8 @@ Want a record to also land in the FDA audit trail (not just the regular log)?
 Use a target-combined wrapper:
 
 ```cpp
+#include <emblogx/logger.h>
+
 log_audit_info("Pump started");          // → LOG sinks AND AUDIT sinks
 log_audit_info_m("safety", "EMERGENCY_STOP_ARMED");
 ```
@@ -114,6 +122,8 @@ Want a structured event with a numeric code (for the cloud dashboard or for
 machine parsing)?
 
 ```cpp
+#include <emblogx/logger.h>
+
 audit_event(101, "cycle", "PROGRAM_SELECT idx=%d name=%s", i, name);
 status_event(7,  "wifi",  "state=disconnected reason=%d", reason);
 ```
@@ -128,6 +138,8 @@ Any time we wanted to log something that needed to go *both* to the
 operator console *and* to the FDA audit file, we had to write two calls:
 
 ```cpp
+#include <emblogx/logger.h>
+
 log_info("RBB1 home requested");          // operational
 #ifdef ENABLE_AUDIT
 if (audit_) audit_->logInfo("RBB1_HOME"); // regulatory
@@ -180,6 +192,8 @@ suffix with a force suffix. The format string is always the last positional
 argument.
 
 ```cpp
+#include <emblogx/logger.h>
+
 log_info(fmt, ...);                    // no module, rate-limited
 log_info_m("wifi", fmt, ...);          // with module, rate-limited
 log_info_force(fmt, ...);              // no module, bypass rate limiter
@@ -220,6 +234,8 @@ The full list (each row also has `_m`, `_force`, `_force_m` flavours):
 Plus the two structured helpers:
 
 ```cpp
+#include <emblogx/logger.h>
+
 audit_event(code, module, fmt, ...);   // Info, target = AUDIT
 status_event(code, module, fmt, ...);  // Info, target = STATUS
 ```
@@ -485,6 +501,8 @@ find it by scanning the device RAM for the `LOGBUF_V1` magic string and dump
 the recent history with no agent on the device:
 
 ```cpp
+#include <emblogx/logger.h>
+
 struct LogTraceBuffer {
     char     magic[10];        // "LOGBUF_V1"
     uint32_t version;
@@ -507,6 +525,8 @@ The reader API is non-blocking and incremental — pass the same cursor
 across calls to read new bytes only:
 
 ```cpp
+#include <emblogx/logger.h>
+
 char     buf[256];
 uint32_t cursor = 0;
 emblogx::memory_sink_seek_oldest(&cursor);   // start from history beginning
@@ -549,6 +569,8 @@ Debug records are filtered at runtime, not just compile time, so you can
 turn verbose logging on in the field without re-flashing:
 
 ```cpp
+#include <emblogx/logger.h>
+
 emblogx::set_global_level(emblogx::Level::Debug);
 emblogx::set_module_level("ota", emblogx::Level::Info);
 
@@ -601,6 +623,8 @@ record, only when a provider is registered.
   mock, no virtual dispatch.
 
 ```cpp
+#include <emblogx/logger.h>
+
 // In tests:
 int64_t fake_clock() { return 1'700'000'000'123LL; }
 emblogx::set_now_ms_provider(&fake_clock);
@@ -637,6 +661,8 @@ that already carries the timestamp out-of-band, e.g. the JSON-emitting
 HTTP sink:
 
 ```cpp
+#include <emblogx/logger.h>
+
 my_console_sink.set_show_timestamp(false);   // strip the prefix from this sink only
 ```
 
