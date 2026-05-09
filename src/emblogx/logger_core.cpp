@@ -43,6 +43,14 @@ namespace emblogx {
         // One entry per known call site. The `fmt` pointer identifies the
         // site (format strings are literals with static storage). On overflow
         // the oldest entry is evicted.
+        //
+        // Errors get their OWN pool. Rationale: a tight loop emitting Debug /
+        // Info / Warn must not consume budget belonging to an Error from a
+        // different call site, otherwise an error that fires once per loop
+        // could find its slot evicted by noise (no-block) or — worse — share
+        // a notional budget with non-errors. Each pool tracks its own LRU,
+        // so an error's eligibility is decided ONLY by when the last error
+        // (with the same fmt) was emitted.
         constexpr uint8_t RATE_SLOTS = 16;
 
         struct RateEntry {
@@ -50,11 +58,13 @@ namespace emblogx {
                 uint64_t last_ms;
         };
 
-        RateEntry g_rate_entries[RATE_SLOTS] = {};
+        RateEntry g_rate_entries_normal[RATE_SLOTS] = {};
+        RateEntry g_rate_entries_error[RATE_SLOTS] = {};
         uint32_t g_rate_limit_ms = 0;
 
         // Returns true when the record at this call site should be dropped.
-        bool rate_limited(const char* fmt, uint64_t now) {
+        // `pool` is one of the two arrays above — caller picks based on level.
+        bool rate_limited(RateEntry* pool, const char* fmt, uint64_t now) {
             if (g_rate_limit_ms == 0 || fmt == nullptr) {
                 return false;
             }
@@ -62,23 +72,23 @@ namespace emblogx {
             uint64_t oldest_ts = UINT64_MAX;
             uint8_t free_slot = RATE_SLOTS;
             for (uint8_t i = 0; i < RATE_SLOTS; ++i) {
-                if (g_rate_entries[i].fmt == fmt) {
-                    if (now - g_rate_entries[i].last_ms < g_rate_limit_ms) {
+                if (pool[i].fmt == fmt) {
+                    if (now - pool[i].last_ms < g_rate_limit_ms) {
                         return true;
                     }
-                    g_rate_entries[i].last_ms = now;
+                    pool[i].last_ms = now;
                     return false;
                 }
-                if (g_rate_entries[i].fmt == nullptr && free_slot == RATE_SLOTS) {
+                if (pool[i].fmt == nullptr && free_slot == RATE_SLOTS) {
                     free_slot = i;
                 }
-                if (g_rate_entries[i].last_ms < oldest_ts) {
-                    oldest_ts = g_rate_entries[i].last_ms;
+                if (pool[i].last_ms < oldest_ts) {
+                    oldest_ts = pool[i].last_ms;
                     oldest = i;
                 }
             }
             const uint8_t target_slot = (free_slot < RATE_SLOTS) ? free_slot : oldest;
-            g_rate_entries[target_slot] = RateEntry{fmt, now};
+            pool[target_slot] = RateEntry{fmt, now};
             return false;
         }
 
@@ -185,10 +195,25 @@ namespace emblogx {
 
     void set_rate_limit_ms(uint32_t ms) {
         g_rate_limit_ms = ms;
+        if (ms == 0) {
+            // Disabling the limiter wipes the bookkeeping. The
+            // alternative — keeping stale entries around forever —
+            // would haunt the next call that re-enables limiting.
+            // `clear_rate_limiter()` exists as the explicit form;
+            // this wrapping just makes "disable" intuitive.
+            clear_rate_limiter();
+        }
     }
 
     uint32_t get_rate_limit_ms() {
         return g_rate_limit_ms;
+    }
+
+    void clear_rate_limiter() {
+        for (uint8_t i = 0; i < RATE_SLOTS; ++i) {
+            g_rate_entries_normal[i] = RateEntry{};
+            g_rate_entries_error[i] = RateEntry{};
+        }
     }
 
     ISink* sink_at(uint8_t index) {
@@ -259,9 +284,16 @@ namespace emblogx {
                 return;
             }
 
-            // Rate limiter — errors and forced calls always go through.
-            if (!force && lvl != Level::Error && rate_limited(fmt, now_ms())) {
-                return;
+            // Rate limiter — forced calls always go through. Errors are
+            // rate-limited from their own pool so they cannot be crowded
+            // out by non-error noise; use the `_force` variant when an
+            // error must always land regardless of cadence.
+            if (!force) {
+                RateEntry* pool = (lvl == Level::Error) ? g_rate_entries_error
+                                                        : g_rate_entries_normal;
+                if (rate_limited(pool, fmt, now_ms())) {
+                    return;
+                }
             }
 
             // ---- Format once ------------------------------------------------

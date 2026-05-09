@@ -207,9 +207,15 @@ inline void status_event(int code, const char* module, const char* fmt, ...) {
 // ---- Rate limiting --------------------------------------------------------
 // Throttles repeated calls from the same call site (same format-string
 // pointer) so that logs inside a tight loop() do not flood the console or
-// slow sinks. Error-level records always go through; the `_force` / `_force_m`
-// variants above also bypass the check for boot banners and one-shot events
-// that must never be dropped.
+// slow sinks. ALL levels (Debug / Info / Warn / Error) are throttled when
+// a non-zero interval is set.
+//
+// Errors have their OWN throttling bucket — independent from non-error
+// logs. A flood of debug / info / warn calls cannot suppress an error
+// from a different call site: an error's eligibility is decided only by
+// when the last error with the same fmt was emitted. Use `_force` /
+// `_force_m` to bypass the check entirely (boot banners, one-shot
+// shutdown notices, errors that must always land).
 //
 // Default: 0 (disabled). Set a non-zero interval at boot to enable:
 //
@@ -224,6 +230,12 @@ inline void log_set_rate_limit_ms(uint32_t interval_ms) {
 
 inline uint32_t log_get_rate_limit_ms() {
     return ::emblogx::get_rate_limit_ms();
+}
+
+// Wipe both rate-limiter pools (normal + error). Use after a phase change
+// or during recovery when the in-memory cadence is no longer relevant.
+inline void log_clear_rate_limiter() {
+    ::emblogx::clear_rate_limiter();
 }
 
 // ---- Lifecycle ------------------------------------------------------------

@@ -96,15 +96,21 @@ namespace emblogx {
     // Drops repeated calls from the same call site (same `fmt` pointer) when
     // they arrive faster than the configured interval. Useful when code in
     // loop() logs on every iteration and would otherwise flood the console
-    // or a slow sink. Error-level records always go through. The `_force`
-    // variants in logger.h also bypass the check — use them for boot banners
-    // and one-shot state transitions that must not be dropped.
+    // or a slow sink. ALL levels are throttled; errors live in their OWN
+    // pool so a flood of non-error logs cannot crowd them out. The `_force`
+    // variants in logger.h bypass the check — use them for boot banners,
+    // one-shot state transitions, and errors that must always land.
     //
     // Default: 0 ms (disabled). The rate check is keyed by the `fmt` pointer
     // so the format string MUST be a literal (same contract as the `module`
     // argument).
     void set_rate_limit_ms(uint32_t ms);
     uint32_t get_rate_limit_ms();
+
+    // Wipe both rate-limiter pools (normal + error). Useful after recovery
+    // from a stall, at the boundary of two unrelated phases, or in tests
+    // that need a clean slate without resetting the entire process.
+    void clear_rate_limiter();
 
     // ---- The single log entry point ----------------------------------------
     // All printf-style wrappers ultimately call this. The `_force` variant

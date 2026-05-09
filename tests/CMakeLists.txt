@@ -57,7 +57,9 @@ add_compile_definitions(
     EMBLOGX_DEBUG_ENABLED
     # Tests share one process and register sinks across cases without
     # resetting the registry, so the production cap of 8 is too low here.
-    EMBLOGX_MAX_SINKS=32
+    # ~37 registration sites total (CapturingSink + memory + SD); leave
+    # headroom for future cases.
+    EMBLOGX_MAX_SINKS=64
 )
 
 add_executable(test_emblogx

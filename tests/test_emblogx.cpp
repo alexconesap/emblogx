@@ -56,7 +56,10 @@ namespace {
     // The library is built with file-static state so we can't truly reset
     // it; capturing sinks accumulate across tests within one process and
     // assertions check ".back()".
-    constexpr size_t MAX_TEST_SINKS = 16;
+    // Sized comfortably above the total `fresh_sink()` calls in the file
+    // (currently ~30). The library's own sink registry is per-process;
+    // the array here just provides backing storage for the test fakes.
+    constexpr size_t MAX_TEST_SINKS = 48;
     CapturingSink g_test_sinks[MAX_TEST_SINKS];
     size_t g_test_sink_count = 0;
 
@@ -462,16 +465,65 @@ TEST(RateLimit, DropsRepeatedCallsWithinInterval) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ErrorLevelAlwaysGoesThrough) {
+TEST(RateLimit, ErrorsAreRateLimited) {
+    // Errors used to bypass the limiter, which produced flooded sinks
+    // when an error fires every loop() iteration. They are now throttled
+    // exactly like Info/Warn/Debug — the first error from a given fmt
+    // lands and the next ones inside the window are dropped.
     auto* sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
 
     for (int i = 0; i < 3; ++i) {
-        log_error("should always show %d", i);
+        log_error("error flood %d", i);
     }
+    // Only the first call lands; the next two are throttled.
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
 
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ErrorPoolIsIndependentFromNonErrorPool) {
+    // The whole point of the new design: a flood of non-error logs must
+    // NOT consume budget belonging to errors. An error from a different
+    // call site lands on its own clock, decided only by the last error
+    // emitted for that fmt — not by any debug / info / warn that fired
+    // in between.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    log_info("noise A %d", 1);
+    log_warn("noise B %d", 2);
+    log_error("first error");
+    EXPECT_EQ(sink->seen.size(), baseline + 3);
+
+    // More non-error noise — must not reset or block the error path.
+    log_info("noise C %d", 3);
+    log_warn("noise D %d", 4);
+
+    // A *different* error fmt must still land — it has its own slot in
+    // the error pool, independent from the non-error pool.
+    log_error("second error");
+    EXPECT_EQ(sink->seen.size(), baseline + 6);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ErrorForceBypassesTheLimiter) {
+    // Escape hatch for "this error must always land": log_error_force /
+    // log_error_force_m skip the limiter just like the info/warn/debug
+    // _force variants.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    for (int i = 0; i < 3; ++i) {
+        log_error_force("forced error %d", i);
+    }
     EXPECT_EQ(sink->seen.size(), baseline + 3);
 
     log_set_rate_limit_ms(0);
@@ -560,12 +612,16 @@ TEST(RateLimit, ChangingIntervalAtRuntimeTakesEffect) {
 
 TEST(RateLimit, TableEvictionStillThrottlesActiveSites) {
     // The rate table is fixed-size (16 slots). Once it is full the oldest
-    // entry is evicted to make room for new sites. The freshly-eviced site
+    // entry is evicted to make room for new sites. The freshly-evicted site
     // becomes "unknown" and a single call from it goes through, but a site
     // that has been kept warm by recent calls must still be throttled.
     auto* sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
+    // The pool is process-global; earlier tests may have left entries
+    // with old timestamps that would be evicted before "warm site" and
+    // distort the LRU semantics this case asserts on. Start clean.
+    log_clear_rate_limiter();
     log_set_rate_limit_ms(10'000);
 
     // Warm one site we want to stay throttled.
@@ -651,6 +707,47 @@ TEST(RateLimit, ForceVariantDoesNotResetTheRegularSlot) {
 
     log_info("mixed %d", 4);  // window expired: lands
     EXPECT_EQ(sink->seen.size(), baseline + 4);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ClearRateLimiterReopensThrottledSites) {
+    // After clear_rate_limiter() every site is "unknown" again. The same
+    // fmt that was just throttled must land on the very next call.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    log_info("clearable %d", 1);  // lands
+    log_info("clearable %d", 2);  // throttled
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    log_clear_rate_limiter();
+
+    log_info("clearable %d", 3);  // lands again — pool was wiped
+    EXPECT_EQ(sink->seen.size(), baseline + 2);
+
+    log_set_rate_limit_ms(0);
+}
+
+TEST(RateLimit, ClearRateLimiterClearsBothPools) {
+    // The error pool must also be wiped — otherwise a previously-throttled
+    // error fmt would still be blocked after a clear that only touched
+    // the normal pool.
+    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    const size_t baseline = sink->seen.size();
+
+    log_set_rate_limit_ms(10'000);
+
+    log_error("clearable error");  // lands
+    log_error("clearable error");  // throttled
+    EXPECT_EQ(sink->seen.size(), baseline + 1);
+
+    log_clear_rate_limiter();
+
+    log_error("clearable error");  // lands again
+    EXPECT_EQ(sink->seen.size(), baseline + 2);
 
     log_set_rate_limit_ms(0);
 }
