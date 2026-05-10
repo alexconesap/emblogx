@@ -6,15 +6,18 @@
 
 #include <cstring>
 
-namespace emblogx {
+namespace emblogx
+{
 
-    AsyncDispatcher::~AsyncDispatcher() {
+    AsyncDispatcher::~AsyncDispatcher()
+    {
         stop();
     }
 
     // ---- Internal queue helpers (no locking outside the ESP-IDF mutex) ------
 
-    bool AsyncDispatcher::pop(Slot& out) {
+    bool AsyncDispatcher::pop(Slot &out)
+    {
         if (count_ == 0) {
             return false;
         }
@@ -26,8 +29,9 @@ namespace emblogx {
 
 #ifdef ESP_PLATFORM
 
-    bool AsyncDispatcher::start(Handler handler, void* ctx, const char* task_name,
-                                uint32_t stack_size_words, uint8_t priority, int core) {
+    bool AsyncDispatcher::start(Handler handler, void *ctx, const char *task_name, uint32_t stack_size_words,
+                                uint8_t priority, int core)
+    {
         if (running_) {
             return true;
         }
@@ -46,9 +50,8 @@ namespace emblogx {
         }
 
         running_ = true;
-        BaseType_t res =
-                xTaskCreatePinnedToCore(&AsyncDispatcher::task_entry, task_name, stack_size_words,
-                                        this, priority, &task_handle_, core);
+        BaseType_t res = xTaskCreatePinnedToCore(&AsyncDispatcher::task_entry, task_name, stack_size_words, this,
+                                                 priority, &task_handle_, core);
         if (res != pdPASS) {
             running_ = false;
             task_handle_ = nullptr;
@@ -57,7 +60,8 @@ namespace emblogx {
         return true;
     }
 
-    void AsyncDispatcher::stop() {
+    void AsyncDispatcher::stop()
+    {
         if (!running_) {
             return;
         }
@@ -82,7 +86,8 @@ namespace emblogx {
         }
     }
 
-    bool AsyncDispatcher::push(const Record& rec) {
+    bool AsyncDispatcher::push(const Record &rec)
+    {
         if (!running_ || mutex_ == nullptr) {
             return false;
         }
@@ -98,7 +103,7 @@ namespace emblogx {
             --count_;
         }
 
-        Slot& dst = slots_[tail_];
+        Slot &dst = slots_[tail_];
         dst.target = rec.target;
         dst.level = rec.level;
         dst.module = rec.module;
@@ -113,8 +118,7 @@ namespace emblogx {
         dst.line_len = to_copy;
         // Clamp to the truncated slot length — the prefix can never exceed
         // what we actually copied even if rec.line was longer.
-        dst.timestamp_prefix_len =
-                (rec.timestamp_prefix_len <= to_copy) ? rec.timestamp_prefix_len : to_copy;
+        dst.timestamp_prefix_len = (rec.timestamp_prefix_len <= to_copy) ? rec.timestamp_prefix_len : to_copy;
 
         tail_ = (tail_ + 1) % SLOTS;
         ++count_;
@@ -126,11 +130,13 @@ namespace emblogx {
         return true;
     }
 
-    void AsyncDispatcher::task_entry(void* param) {
-        static_cast<AsyncDispatcher*>(param)->task_loop();
+    void AsyncDispatcher::task_entry(void *param)
+    {
+        static_cast<AsyncDispatcher *>(param)->task_loop();
     }
 
-    void AsyncDispatcher::task_loop() {
+    void AsyncDispatcher::task_loop()
+    {
         while (running_) {
             ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(1000));
 
@@ -164,10 +170,11 @@ namespace emblogx {
         vTaskDelete(nullptr);
     }
 
-#else  // ---- Host fallback (tests, dev computers) ---------------------------
+#else // ---- Host fallback (tests, dev computers) ---------------------------
 
-    bool AsyncDispatcher::start(Handler handler, void* ctx, const char* /*task_name*/,
-                                uint32_t /*stack*/, uint8_t /*pri*/, int /*core*/) {
+    bool AsyncDispatcher::start(Handler handler, void *ctx, const char * /*task_name*/, uint32_t /*stack*/,
+                                uint8_t /*pri*/, int /*core*/)
+    {
         if (handler == nullptr) {
             return false;
         }
@@ -177,13 +184,15 @@ namespace emblogx {
         return true;
     }
 
-    void AsyncDispatcher::stop() {
+    void AsyncDispatcher::stop()
+    {
         running_ = false;
         handler_ = nullptr;
         ctx_ = nullptr;
     }
 
-    bool AsyncDispatcher::push(const Record& rec) {
+    bool AsyncDispatcher::push(const Record &rec)
+    {
         if (!running_ || handler_ == nullptr) {
             return false;
         }
@@ -201,8 +210,7 @@ namespace emblogx {
         std::memcpy(tmp.line, rec.line, to_copy);
         tmp.line[to_copy] = '\0';
         tmp.line_len = to_copy;
-        tmp.timestamp_prefix_len =
-                (rec.timestamp_prefix_len <= to_copy) ? rec.timestamp_prefix_len : to_copy;
+        tmp.timestamp_prefix_len = (rec.timestamp_prefix_len <= to_copy) ? rec.timestamp_prefix_len : to_copy;
 
         Record forward{};
         forward.target = tmp.target;
@@ -217,6 +225,6 @@ namespace emblogx {
         return true;
     }
 
-#endif  // ESP_PLATFORM
+#endif // ESP_PLATFORM
 
-}  // namespace emblogx
+} // namespace emblogx

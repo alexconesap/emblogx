@@ -9,7 +9,8 @@
 #include <cstdio>
 #include <cstring>
 
-namespace emblogx {
+namespace emblogx
+{
 
     // Minimum free space threshold (10%). Below this, old journals are deleted.
     static constexpr uint8_t FREE_SPACE_THRESHOLD_PCT = 10;
@@ -22,14 +23,15 @@ namespace emblogx {
 
     // Context for list_dir callback that finds the highest sequence number.
     struct SeqScanCtx {
-            const char* prefix;
-            int prefix_len;
-            int max_seq;
+        const char *prefix;
+        int prefix_len;
+        int max_seq;
     };
 
-    static bool seq_scan_cb(const char* path, void* ctx) {
-        auto* c = static_cast<SeqScanCtx*>(ctx);
-        const char* name = strrchr(path, '/');
+    static bool seq_scan_cb(const char *path, void *ctx)
+    {
+        auto *c = static_cast<SeqScanCtx *>(ctx);
+        const char *name = strrchr(path, '/');
         name = (name != nullptr) ? name + 1 : path;
 
         if (strncmp(name, c->prefix, c->prefix_len) != 0) {
@@ -39,7 +41,7 @@ namespace emblogx {
             return true;
         }
         int seq = 0;
-        const char* p = name + c->prefix_len + 1;
+        const char *p = name + c->prefix_len + 1;
         while (*p >= '0' && *p <= '9') {
             seq = seq * 10 + (*p - '0');
             ++p;
@@ -50,7 +52,8 @@ namespace emblogx {
         return true;
     }
 
-    int SdSink::find_next_sequence() const {
+    int SdSink::find_next_sequence() const
+    {
         SeqScanCtx ctx;
         ctx.prefix = prefix_;
         ctx.prefix_len = static_cast<int>(strlen(prefix_));
@@ -61,15 +64,16 @@ namespace emblogx {
 
     // Context for collecting journal file paths for cleanup (sorted by name).
     struct CleanupCtx {
-            const char* prefix;
-            int prefix_len;
-            char paths[MAX_JOURNAL_FILES][64];
-            int count;
+        const char *prefix;
+        int prefix_len;
+        char paths[MAX_JOURNAL_FILES][64];
+        int count;
     };
 
-    static bool cleanup_scan_cb(const char* path, void* ctx) {
-        auto* c = static_cast<CleanupCtx*>(ctx);
-        const char* name = strrchr(path, '/');
+    static bool cleanup_scan_cb(const char *path, void *ctx)
+    {
+        auto *c = static_cast<CleanupCtx *>(ctx);
+        const char *name = strrchr(path, '/');
         name = (name != nullptr) ? name + 1 : path;
 
         if (strncmp(name, c->prefix, c->prefix_len) != 0) {
@@ -87,7 +91,8 @@ namespace emblogx {
     }
 
     // Insertion sort — alphabetical = chronological (zero-padded sequence numbers).
-    static void sort_paths(char paths[][64], int count) {
+    static void sort_paths(char paths[][64], int count)
+    {
         for (int i = 1; i < count; ++i) {
             char tmp[64];
             memcpy(tmp, paths[i], 64);
@@ -100,7 +105,8 @@ namespace emblogx {
         }
     }
 
-    void SdSink::cleanup_old_journals() {
+    void SdSink::cleanup_old_journals()
+    {
         ::ungula::sd::SpaceInfo space;
         if (!fs_.free_space(space) || space.total_bytes == 0) {
             return;
@@ -111,7 +117,7 @@ namespace emblogx {
             return;
         }
 
-        static CleanupCtx ctx;  // static — only one SdSink per project
+        static CleanupCtx ctx; // static — only one SdSink per project
         ctx.prefix = prefix_;
         ctx.prefix_len = static_cast<int>(strlen(prefix_));
         ctx.count = 0;
@@ -123,7 +129,7 @@ namespace emblogx {
 
         sort_paths(ctx.paths, ctx.count);
 
-        for (int i = 0; i < ctx.count - 1; ++i) {  // never delete the newest
+        for (int i = 0; i < ctx.count - 1; ++i) { // never delete the newest
             fs_.remove(ctx.paths[i]);
 
             if (fs_.free_space(space) && space.total_bytes > 0) {
@@ -137,7 +143,8 @@ namespace emblogx {
 
     // --- Sink interface --------------------------------------------------------
 
-    bool SdSink::begin() {
+    bool SdSink::begin()
+    {
         // Resolve the file path
         if (is_journal_mode()) {
             if (dir_ == nullptr || dir_[0] == '\0' || prefix_ == nullptr || prefix_[0] == '\0') {
@@ -185,17 +192,20 @@ namespace emblogx {
         return true;
     }
 
-    void SdSink::write(const Record& rec) {
+    void SdSink::write(const Record &rec)
+    {
         dispatcher_.push(rec);
     }
 
-    void SdSink::flush() {
+    void SdSink::flush()
+    {
         // No-op. on_record() flushes after every record (audit durability).
         // Calling flush() from another task would race with the worker.
     }
 
-    void SdSink::on_record(const Record& rec, void* ctx) {
-        auto* self = static_cast<SdSink*>(ctx);
+    void SdSink::on_record(const Record &rec, void *ctx)
+    {
+        auto *self = static_cast<SdSink *>(ctx);
         if (self->file_ == nullptr) {
             return;
         }
@@ -208,6 +218,6 @@ namespace emblogx {
         self->file_->flush();
     }
 
-}  // namespace emblogx
+} // namespace emblogx
 
-#endif  // EMBLOGX_ENABLE_SINK_SD
+#endif // EMBLOGX_ENABLE_SINK_SD

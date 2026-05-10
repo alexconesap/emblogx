@@ -18,21 +18,25 @@
 
 #include <cstdio>
 
-namespace emblogx {
+namespace emblogx
+{
 
-    bool ConsoleSink::begin() {
+    bool ConsoleSink::begin()
+    {
         return true;
     }
 
-    void ConsoleSink::write(const Record& rec) {
+    void ConsoleSink::write(const Record &rec)
+    {
         std::fwrite(effective_line(rec), 1, effective_line_len(rec), stdout);
         std::fputc('\n', stdout);
     }
 
-    void ConsoleSink::flush() {
+    void ConsoleSink::flush()
+    {
         std::fflush(stdout);
     }
 
-}  // namespace emblogx
+} // namespace emblogx
 
-#endif  // EMBLOGX_ENABLE_SINK_CONSOLE
+#endif // EMBLOGX_ENABLE_SINK_CONSOLE

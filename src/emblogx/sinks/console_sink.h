@@ -33,25 +33,29 @@
 
 #if EMBLOGX_ENABLE_SINK_CONSOLE
 
-namespace emblogx {
+namespace emblogx
+{
 
     class ConsoleSink : public ISink {
-        public:
-            uint8_t capabilities() const override {
-                return Capability::LOG;
-            }
-            Mode mode() const override {
-                return Mode::Sync;
-            }
+    public:
+        uint8_t capabilities() const override
+        {
+            return Capability::LOG;
+        }
+        Mode mode() const override
+        {
+            return Mode::Sync;
+        }
 
-            bool begin() override;
-            void write(const Record& rec) override;
-            void flush() override;
-            const char* name() const override {
-                return "console";
-            }
+        bool begin() override;
+        void write(const Record &rec) override;
+        void flush() override;
+        const char *name() const override
+        {
+            return "console";
+        }
     };
 
-}  // namespace emblogx
+} // namespace emblogx
 
-#endif  // EMBLOGX_ENABLE_SINK_CONSOLE
+#endif // EMBLOGX_ENABLE_SINK_CONSOLE

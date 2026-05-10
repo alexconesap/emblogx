@@ -32,77 +32,78 @@
 #include <freertos/task.h>
 #endif
 
-namespace emblogx {
+namespace emblogx
+{
 
     class AsyncDispatcher {
-        public:
-            using Handler = void (*)(const Record& rec, void* ctx);
+    public:
+        using Handler = void (*)(const Record &rec, void *ctx);
 
-            AsyncDispatcher() = default;
-            ~AsyncDispatcher();
+        AsyncDispatcher() = default;
+        ~AsyncDispatcher();
 
-            AsyncDispatcher(const AsyncDispatcher&) = delete;
-            AsyncDispatcher& operator=(const AsyncDispatcher&) = delete;
+        AsyncDispatcher(const AsyncDispatcher &) = delete;
+        AsyncDispatcher &operator=(const AsyncDispatcher &) = delete;
 
-            // Start the worker task. Returns false if the task could not be created
-            // (e.g. out of memory). Safe to call multiple times — only the first
-            // call has effect.
-            //
-            // task_name        FreeRTOS task name (must be a stable string literal)
-            // stack_size_words FreeRTOS stack in words. Caller-chosen, depends on
-            //                  what the handler does. 4096 is enough for the SD
-            //                  sink (file I/O), 8192 is enough for the HTTP sink
-            //                  (TCP/TLS through esp_http_client).
-            // priority         FreeRTOS task priority (1 is fine for log workers)
-            // core             core to pin to (1 = network core on dual-core ESP32)
-            bool start(Handler handler, void* ctx, const char* task_name,
-                       uint32_t stack_size_words = 4096, uint8_t priority = 1, int core = 1);
+        // Start the worker task. Returns false if the task could not be created
+        // (e.g. out of memory). Safe to call multiple times — only the first
+        // call has effect.
+        //
+        // task_name        FreeRTOS task name (must be a stable string literal)
+        // stack_size_words FreeRTOS stack in words. Caller-chosen, depends on
+        //                  what the handler does. 4096 is enough for the SD
+        //                  sink (file I/O), 8192 is enough for the HTTP sink
+        //                  (TCP/TLS through esp_http_client).
+        // priority         FreeRTOS task priority (1 is fine for log workers)
+        // core             core to pin to (1 = network core on dual-core ESP32)
+        bool start(Handler handler, void *ctx, const char *task_name, uint32_t stack_size_words = 4096,
+                   uint8_t priority = 1, int core = 1);
 
-            // Stop the worker task. Drains all pending records first.
-            void stop();
+        // Stop the worker task. Drains all pending records first.
+        void stop();
 
-            // Enqueue a record. Non-blocking. Returns false only if start() was
-            // never called. Records that overflow the queue evict the oldest
-            // entry — newest data is always kept.
-            bool push(const Record& rec);
+        // Enqueue a record. Non-blocking. Returns false only if start() was
+        // never called. Records that overflow the queue evict the oldest
+        // entry — newest data is always kept.
+        bool push(const Record &rec);
 
-        private:
-            static constexpr uint32_t SLOT_BYTES = EMBLOGX_LINE_MAX;
-            static constexpr uint32_t SLOTS = EMBLOGX_QUEUE_SLOTS;
+    private:
+        static constexpr uint32_t SLOT_BYTES = EMBLOGX_LINE_MAX;
+        static constexpr uint32_t SLOTS = EMBLOGX_QUEUE_SLOTS;
 
-            // One slot = one fully formatted line + the metadata fields we
-            // need at consumption time. The timestamp is signed 64-bit to
-            // match Record::timestamp exactly — same width and signedness so
-            // an async sink that re-emits a Slot can store the value back
-            // into a Record without conversion.
-            struct Slot {
-                    uint8_t target;
-                    Level level;
-                    const char* module;  // stable literal pointer
-                    int64_t timestamp;
-                    uint16_t line_len;
-                    uint16_t timestamp_prefix_len;
-                    char line[SLOT_BYTES];
-            };
+        // One slot = one fully formatted line + the metadata fields we
+        // need at consumption time. The timestamp is signed 64-bit to
+        // match Record::timestamp exactly — same width and signedness so
+        // an async sink that re-emits a Slot can store the value back
+        // into a Record without conversion.
+        struct Slot {
+            uint8_t target;
+            Level level;
+            const char *module; // stable literal pointer
+            int64_t timestamp;
+            uint16_t line_len;
+            uint16_t timestamp_prefix_len;
+            char line[SLOT_BYTES];
+        };
 
-            Slot slots_[SLOTS] = {};
-            uint32_t head_ = 0;   // next read
-            uint32_t tail_ = 0;   // next write
-            uint32_t count_ = 0;  // number of pending records
+        Slot slots_[SLOTS] = {};
+        uint32_t head_ = 0; // next read
+        uint32_t tail_ = 0; // next write
+        uint32_t count_ = 0; // number of pending records
 
-            Handler handler_ = nullptr;
-            void* ctx_ = nullptr;
-            bool running_ = false;
+        Handler handler_ = nullptr;
+        void *ctx_ = nullptr;
+        bool running_ = false;
 
 #ifdef ESP_PLATFORM
-            TaskHandle_t task_handle_ = nullptr;
-            SemaphoreHandle_t mutex_ = nullptr;
+        TaskHandle_t task_handle_ = nullptr;
+        SemaphoreHandle_t mutex_ = nullptr;
 
-            static void task_entry(void* param);
-            void task_loop();
+        static void task_entry(void *param);
+        void task_loop();
 #endif
 
-            bool pop(Slot& out);
+        bool pop(Slot &out);
     };
 
-}  // namespace emblogx
+} // namespace emblogx

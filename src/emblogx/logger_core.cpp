@@ -7,28 +7,30 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <ctime>  // strftime / gmtime_r — used for the timestamp prefix
-                  // on both ESP-IDF and host builds.
+#include <ctime> // strftime / gmtime_r — used for the timestamp prefix
+// on both ESP-IDF and host builds.
 
 #ifdef ESP_PLATFORM
 #include <esp_timer.h>
 #endif
 
-namespace emblogx {
+namespace emblogx
+{
 
     // ---- Static state -------------------------------------------------------
     // Everything here is process-wide and lock-free for the producer hot path.
     // Sink list is fixed-capacity, written only at boot, read every log call.
 
-    namespace {
+    namespace
+    {
         constexpr uint8_t MODULE_LEVEL_SLOTS = 8;
 
         struct ModuleLevel {
-                const char* name;  // stable literal pointer
-                Level level;
+            const char *name; // stable literal pointer
+            Level level;
         };
 
-        ISink* g_sinks[EMBLOGX_MAX_SINKS] = {};
+        ISink *g_sinks[EMBLOGX_MAX_SINKS] = {};
         bool g_sink_enabled[EMBLOGX_MAX_SINKS] = {};
         bool g_sink_begun[EMBLOGX_MAX_SINKS] = {};
         uint8_t g_sink_count = 0;
@@ -54,8 +56,8 @@ namespace emblogx {
         constexpr uint8_t RATE_SLOTS = 16;
 
         struct RateEntry {
-                const char* fmt;
-                uint64_t last_ms;
+            const char *fmt;
+            uint64_t last_ms;
         };
 
         RateEntry g_rate_entries_normal[RATE_SLOTS] = {};
@@ -64,7 +66,8 @@ namespace emblogx {
 
         // Returns true when the record at this call site should be dropped.
         // `pool` is one of the two arrays above — caller picks based on level.
-        bool rate_limited(RateEntry* pool, const char* fmt, uint64_t now) {
+        bool rate_limited(RateEntry *pool, const char *fmt, uint64_t now)
+        {
             if (g_rate_limit_ms == 0 || fmt == nullptr) {
                 return false;
             }
@@ -88,16 +91,17 @@ namespace emblogx {
                 }
             }
             const uint8_t target_slot = (free_slot < RATE_SLOTS) ? free_slot : oldest;
-            pool[target_slot] = RateEntry{fmt, now};
+            pool[target_slot] = RateEntry{ fmt, now };
             return false;
         }
 
         // Effective level for a record — checks the per-module override first,
         // then falls back to the global level.
-        Level effective_level(const char* module) {
+        Level effective_level(const char *module)
+        {
             if (module != nullptr) {
                 for (uint8_t i = 0; i < g_module_count; ++i) {
-                    if (g_module_levels[i].name == module ||  // pointer match (literal interning)
+                    if (g_module_levels[i].name == module || // pointer match (literal interning)
                         std::strcmp(g_module_levels[i].name, module) == 0) {
                         return g_module_levels[i].level;
                     }
@@ -105,11 +109,12 @@ namespace emblogx {
             }
             return g_global_level;
         }
-    }  // namespace
+    } // namespace
 
     // ---- Registry -----------------------------------------------------------
 
-    bool register_sink(ISink* sink) {
+    bool register_sink(ISink *sink)
+    {
         if (sink == nullptr) {
             return false;
         }
@@ -122,11 +127,13 @@ namespace emblogx {
         return true;
     }
 
-    uint8_t sink_count() {
+    uint8_t sink_count()
+    {
         return g_sink_count;
     }
 
-    void init() {
+    void init()
+    {
         // Allow re-entry: sinks registered after the first init() call (like SD
         // sink registered after mount, while lazy init already ran for an earlier
         // log call) must still get their begin() called. The g_sink_begun[] guard
@@ -142,7 +149,8 @@ namespace emblogx {
         }
     }
 
-    void flush_all() {
+    void flush_all()
+    {
         for (uint8_t i = 0; i < g_sink_count; ++i) {
             if (g_sinks[i] != nullptr && g_sink_enabled[i]) {
                 g_sinks[i]->flush();
@@ -152,22 +160,24 @@ namespace emblogx {
 
     // ---- Runtime config -----------------------------------------------------
 
-    void set_global_level(Level lvl) {
+    void set_global_level(Level lvl)
+    {
         g_global_level = lvl;
     }
 
-    Level get_global_level() {
+    Level get_global_level()
+    {
         return g_global_level;
     }
 
-    bool set_module_level(const char* module, Level lvl) {
+    bool set_module_level(const char *module, Level lvl)
+    {
         if (module == nullptr) {
             return false;
         }
         // Update existing entry first
         for (uint8_t i = 0; i < g_module_count; ++i) {
-            if (g_module_levels[i].name == module ||
-                std::strcmp(g_module_levels[i].name, module) == 0) {
+            if (g_module_levels[i].name == module || std::strcmp(g_module_levels[i].name, module) == 0) {
                 g_module_levels[i].level = lvl;
                 return true;
             }
@@ -175,25 +185,28 @@ namespace emblogx {
         if (g_module_count >= MODULE_LEVEL_SLOTS) {
             return false;
         }
-        g_module_levels[g_module_count++] = ModuleLevel{module, lvl};
+        g_module_levels[g_module_count++] = ModuleLevel{ module, lvl };
         return true;
     }
 
-    void set_sink_enabled(uint8_t index, bool enabled) {
+    void set_sink_enabled(uint8_t index, bool enabled)
+    {
         if (index >= g_sink_count) {
             return;
         }
         g_sink_enabled[index] = enabled;
     }
 
-    bool is_sink_enabled(uint8_t index) {
+    bool is_sink_enabled(uint8_t index)
+    {
         if (index >= g_sink_count) {
             return false;
         }
         return g_sink_enabled[index];
     }
 
-    void set_rate_limit_ms(uint32_t ms) {
+    void set_rate_limit_ms(uint32_t ms)
+    {
         g_rate_limit_ms = ms;
         if (ms == 0) {
             // Disabling the limiter wipes the bookkeeping. The
@@ -205,18 +218,21 @@ namespace emblogx {
         }
     }
 
-    uint32_t get_rate_limit_ms() {
+    uint32_t get_rate_limit_ms()
+    {
         return g_rate_limit_ms;
     }
 
-    void clear_rate_limiter() {
+    void clear_rate_limiter()
+    {
         for (uint8_t i = 0; i < RATE_SLOTS; ++i) {
             g_rate_entries_normal[i] = RateEntry{};
             g_rate_entries_error[i] = RateEntry{};
         }
     }
 
-    ISink* sink_at(uint8_t index) {
+    ISink *sink_at(uint8_t index)
+    {
         if (index >= g_sink_count) {
             return nullptr;
         }
@@ -225,32 +241,36 @@ namespace emblogx {
 
     // ---- Time source --------------------------------------------------------
 
-    namespace {
+    namespace
+    {
         NowMsFn s_now_ms_provider = nullptr;
 
         // Built-in default: monotonic since boot. Used whenever no host-
         // supplied provider has been registered.
-        int64_t default_monotonic_ms() {
+        int64_t default_monotonic_ms()
+        {
 #ifdef ESP_PLATFORM
             return esp_timer_get_time() / 1000;
 #else
             timespec tsp{};
             clock_gettime(CLOCK_MONOTONIC, &tsp);
-            return (static_cast<int64_t>(tsp.tv_sec) * 1000) +
-                   (static_cast<int64_t>(tsp.tv_nsec) / 1000000);
+            return (static_cast<int64_t>(tsp.tv_sec) * 1000) + (static_cast<int64_t>(tsp.tv_nsec) / 1000000);
 #endif
         }
-    }  // namespace
+    } // namespace
 
-    void set_now_ms_provider(NowMsFn fname) {
+    void set_now_ms_provider(NowMsFn fname)
+    {
         s_now_ms_provider = fname;
     }
 
-    NowMsFn get_now_ms_provider() {
+    NowMsFn get_now_ms_provider()
+    {
         return s_now_ms_provider;
     }
 
-    int64_t now_ms() {
+    int64_t now_ms()
+    {
         if (s_now_ms_provider != nullptr) {
             return s_now_ms_provider();
         }
@@ -264,9 +284,10 @@ namespace emblogx {
     // registered. Async sinks copy the bytes into their own queue; sync sinks
     // consume the buffer in place.
 
-    namespace {
-        void log_va_impl(uint8_t target, Level lvl, const char* module, const char* fmt,
-                         va_list args, bool force) {
+    namespace
+    {
+        void log_va_impl(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args, bool force)
+        {
             if (!g_initialized) {
                 init();
             }
@@ -289,8 +310,7 @@ namespace emblogx {
             // out by non-error noise; use the `_force` variant when an
             // error must always land regardless of cadence.
             if (!force) {
-                RateEntry* pool = (lvl == Level::Error) ? g_rate_entries_error
-                                                        : g_rate_entries_normal;
+                RateEntry *pool = (lvl == Level::Error) ? g_rate_entries_error : g_rate_entries_normal;
                 if (rate_limited(pool, fmt, now_ms())) {
                     return;
                 }
@@ -298,8 +318,8 @@ namespace emblogx {
 
             // ---- Format once ------------------------------------------------
             char line[EMBLOGX_LINE_MAX];
-            const char* level_str = levelName(lvl);
-            const char* mod_str = (module != nullptr && module[0] != '\0') ? module : "-";
+            const char *level_str = levelName(lvl);
+            const char *mod_str = (module != nullptr && module[0] != '\0') ? module : "-";
 
             // Optional "[YYYY-MM-DD HH:MM:SS] " prefix. Two gates:
             //   1. EMBLOGX_TIMESTAMP_FORMAT must be a non-empty strftime spec.
@@ -313,7 +333,7 @@ namespace emblogx {
             //      (or any other wall-clock source) is registered, and
             //      stays absent before that — no "[1970-01-01 00:00:NN]"
             //      noise sneaks into logs.
-            constexpr int64_t kWallClockThresholdMs = 1'500'000'000'000LL;
+            constexpr int64_t kWallClockThresholdMs = 1 '500' 000 '000' 000LL;
             const int64_t epoch_ms_value = now_ms();
 
             int prefix_len = 0;
@@ -323,8 +343,7 @@ namespace emblogx {
                 struct tm tm_utc{};
                 gmtime_r(&epoch_s, &tm_utc);
                 char inner[24];
-                const size_t inner_len =
-                        strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
+                const size_t inner_len = strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
                 if (inner_len > 0) {
                     prefix_len = std::snprintf(line, sizeof(line), "[%s] ", inner);
                     if (prefix_len < 0) {
@@ -337,9 +356,8 @@ namespace emblogx {
             }
 #endif
 
-            int header_len =
-                    std::snprintf(line + prefix_len, sizeof(line) - static_cast<size_t>(prefix_len),
-                                  "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
+            int header_len = std::snprintf(line + prefix_len, sizeof(line) - static_cast<size_t>(prefix_len),
+                                           "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
             if (header_len < 0) {
                 return;
             }
@@ -358,8 +376,7 @@ namespace emblogx {
             va_list args_copy;
             va_copy(args_copy, args);
             int body_len =
-                    std::vsnprintf(line + header_len,
-                                   sizeof(line) - static_cast<size_t>(header_len), fmt, args_copy);
+                std::vsnprintf(line + header_len, sizeof(line) - static_cast<size_t>(header_len), fmt, args_copy);
             va_end(args_copy);
             if (body_len < 0) {
                 return;
@@ -380,11 +397,11 @@ namespace emblogx {
             rec.line = line;
             rec.line_len = static_cast<uint16_t>(total);
             rec.timestamp_prefix_len = static_cast<uint16_t>(prefix_len);
-            rec.timestamp = epoch_ms_value;  // re-use the value already queried for the prefix to
-                                             // save one call
+            rec.timestamp = epoch_ms_value; // re-use the value already queried for the prefix to
+            // save one call
 
             for (uint8_t i = 0; i < g_sink_count; ++i) {
-                ISink* sink = g_sinks[i];
+                ISink *sink = g_sinks[i];
                 if (sink == nullptr || !g_sink_enabled[i]) {
                     continue;
                 }
@@ -394,15 +411,16 @@ namespace emblogx {
                 sink->write(rec);
             }
         }
-    }  // namespace
+    } // namespace
 
-    void log_va(uint8_t target, Level lvl, const char* module, const char* fmt, va_list args) {
+    void log_va(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args)
+    {
         log_va_impl(target, lvl, module, fmt, args, false);
     }
 
-    void log_va_force(uint8_t target, Level lvl, const char* module, const char* fmt,
-                      va_list args) {
+    void log_va_force(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args)
+    {
         log_va_impl(target, lvl, module, fmt, args, true);
     }
 
-}  // namespace emblogx
+} // namespace emblogx

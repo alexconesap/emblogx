@@ -36,56 +36,71 @@
 #include <ungula/sd/i_file.h>
 #include <ungula/sd/i_filesystem.h>
 
-namespace emblogx {
+namespace emblogx
+{
 
     class SdSink : public ISink {
-        public:
-            // Single-file mode. fs and path are borrowed — both must outlive the sink.
-            SdSink(::ungula::sd::IFileSystem& fs, const char* path)
-                : fs_(fs), path_(path), dir_(nullptr), prefix_(nullptr) {}
+    public:
+        // Single-file mode. fs and path are borrowed — both must outlive the sink.
+        SdSink(::ungula::sd::IFileSystem &fs, const char *path)
+                : fs_(fs)
+                , path_(path)
+                , dir_(nullptr)
+                , prefix_(nullptr)
+        {
+        }
 
-            // Journal mode. dir and prefix are borrowed — must outlive the sink.
-            // Creates files as {dir}/{prefix}_{seq}.log, one per boot session.
-            SdSink(::ungula::sd::IFileSystem& fs, const char* dir, const char* prefix)
-                : fs_(fs), path_(nullptr), dir_(dir), prefix_(prefix) {}
+        // Journal mode. dir and prefix are borrowed — must outlive the sink.
+        // Creates files as {dir}/{prefix}_{seq}.log, one per boot session.
+        SdSink(::ungula::sd::IFileSystem &fs, const char *dir, const char *prefix)
+                : fs_(fs)
+                , path_(nullptr)
+                , dir_(dir)
+                , prefix_(prefix)
+        {
+        }
 
-            uint8_t capabilities() const override {
-                return Capability::AUDIT;
-            }
-            Mode mode() const override {
-                return Mode::Async;
-            }
+        uint8_t capabilities() const override
+        {
+            return Capability::AUDIT;
+        }
+        Mode mode() const override
+        {
+            return Mode::Async;
+        }
 
-            bool begin() override;
-            void write(const Record& rec) override;
-            void flush() override;
-            const char* name() const override {
-                return "sd";
-            }
+        bool begin() override;
+        void write(const Record &rec) override;
+        void flush() override;
+        const char *name() const override
+        {
+            return "sd";
+        }
 
-        private:
-            ::ungula::sd::IFileSystem& fs_;
-            const char* path_;    // single-file mode: full path, journal mode: nullptr
-            const char* dir_;     // journal mode: directory path
-            const char* prefix_;  // journal mode: filename prefix
-            AsyncDispatcher dispatcher_;
-            ::ungula::sd::IFile* file_ = nullptr;
+    private:
+        ::ungula::sd::IFileSystem &fs_;
+        const char *path_; // single-file mode: full path, journal mode: nullptr
+        const char *dir_; // journal mode: directory path
+        const char *prefix_; // journal mode: filename prefix
+        AsyncDispatcher dispatcher_;
+        ::ungula::sd::IFile *file_ = nullptr;
 
-            // Journal-mode generated path (static buffer, one SdSink per project)
-            static constexpr int PATH_BUF_SIZE = 64;
-            char path_buf_[PATH_BUF_SIZE] = {};
+        // Journal-mode generated path (static buffer, one SdSink per project)
+        static constexpr int PATH_BUF_SIZE = 64;
+        char path_buf_[PATH_BUF_SIZE] = {};
 
-            bool is_journal_mode() const {
-                return dir_ != nullptr && prefix_ != nullptr;
-            }
+        bool is_journal_mode() const
+        {
+            return dir_ != nullptr && prefix_ != nullptr;
+        }
 
-            // Journal helpers
-            int find_next_sequence() const;
-            void cleanup_old_journals();
+        // Journal helpers
+        int find_next_sequence() const;
+        void cleanup_old_journals();
 
-            static void on_record(const Record& rec, void* ctx);
+        static void on_record(const Record &rec, void *ctx);
     };
 
-}  // namespace emblogx
+} // namespace emblogx
 
-#endif  // EMBLOGX_ENABLE_SINK_SD
+#endif // EMBLOGX_ENABLE_SINK_SD

@@ -33,23 +33,24 @@
 
 #include <cstdint>
 
-namespace emblogx {
+namespace emblogx
+{
 
     // Public layout of the memory ring. POD only — no pointers, no virtuals.
     // Stable across firmware versions; new fields must be appended after the
     // existing ones (and version bumped) so external tooling does not break.
     struct LogTraceBuffer {
-            char magic[10];                // "LOGBUF_V1"
-            uint32_t version;              // 1
-            uint32_t buffer_size;          // EMBLOGX_MEMSINK_SIZE
-            uint32_t write_index;          // next write position in data[]
-            uint32_t total_bytes_written;  // monotonic, never resets
-            char data[EMBLOGX_MEMSINK_SIZE];
+        char magic[10]; // "LOGBUF_V1"
+        uint32_t version; // 1
+        uint32_t buffer_size; // EMBLOGX_MEMSINK_SIZE
+        uint32_t write_index; // next write position in data[]
+        uint32_t total_bytes_written; // monotonic, never resets
+        char data[EMBLOGX_MEMSINK_SIZE];
     };
 
     // Access the underlying buffer struct (for debugger / external tooling).
     // The pointer is stable for the entire process lifetime.
-    const LogTraceBuffer* memory_sink_buffer();
+    const LogTraceBuffer *memory_sink_buffer();
 
     // Read up to max_bytes from the ring into dst, starting from *cursor.
     // The cursor is a monotonic byte offset (matches total_bytes_written) so
@@ -66,30 +67,33 @@ namespace emblogx {
     // concurrent writing the reader may briefly observe one or two torn
     // bytes, never a missing or duplicated line. Non-blocking, no allocation,
     // safe to call from any task.
-    size_t memory_sink_read(char* dst, size_t max_bytes, uint32_t* cursor);
+    size_t memory_sink_read(char *dst, size_t max_bytes, uint32_t *cursor);
 
     // Reset the cursor to the start of the readable history.
-    void memory_sink_seek_oldest(uint32_t* cursor);
+    void memory_sink_seek_oldest(uint32_t *cursor);
 
     // Reset the cursor to the writer head (i.e. only show new lines).
-    void memory_sink_seek_newest(uint32_t* cursor);
+    void memory_sink_seek_newest(uint32_t *cursor);
 
     class MemorySink : public ISink {
-        public:
-            uint8_t capabilities() const override {
-                return Capability::LOG | Capability::STATUS;
-            }
-            Mode mode() const override {
-                return Mode::Sync;
-            }
+    public:
+        uint8_t capabilities() const override
+        {
+            return Capability::LOG | Capability::STATUS;
+        }
+        Mode mode() const override
+        {
+            return Mode::Sync;
+        }
 
-            bool begin() override;
-            void write(const Record& rec) override;
-            const char* name() const override {
-                return "memory";
-            }
+        bool begin() override;
+        void write(const Record &rec) override;
+        const char *name() const override
+        {
+            return "memory";
+        }
     };
 
-}  // namespace emblogx
+} // namespace emblogx
 
-#endif  // EMBLOGX_ENABLE_SINK_MEMORY
+#endif // EMBLOGX_ENABLE_SINK_MEMORY

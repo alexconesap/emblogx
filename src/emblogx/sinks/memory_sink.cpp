@@ -35,7 +35,8 @@
 #define EMBLOGX_MEMSINK_UNLOCK() ((void)0)
 #endif
 
-namespace emblogx {
+namespace emblogx
+{
 
     EMBLOGX_MEMSINK_LOCK_DECL;
 
@@ -58,19 +59,21 @@ namespace emblogx {
 #endif
 
     EMBLOGX_LOGBUF_ATTR static LogTraceBuffer g_log_buf = {
-            /* magic               */ {'L', 'O', 'G', 'B', 'U', 'F', '_', 'V', '1', '\0'},
-            /* version             */ 1,
-            /* buffer_size         */ EMBLOGX_MEMSINK_SIZE,
-            /* write_index         */ 0,
-            /* total_bytes_written */ 0,
-            /* data                */ {0},
+        /* magic               */ { 'L', 'O', 'G', 'B', 'U', 'F', '_', 'V', '1', '\0' },
+        /* version             */ 1,
+        /* buffer_size         */ EMBLOGX_MEMSINK_SIZE,
+        /* write_index         */ 0,
+        /* total_bytes_written */ 0,
+        /* data                */ { 0 },
     };
 
     // ---- Internal helpers ---------------------------------------------------
 
-    namespace {
+    namespace
+    {
 
-        inline void put_byte(char chr) {
+        inline void put_byte(char chr)
+        {
             // The byte copy is a single store of one byte and is already atomic;
             // only the index update needs the lock so the (write_index,
             // total_bytes_written) pair stays consistent for readers.
@@ -81,7 +84,8 @@ namespace emblogx {
             EMBLOGX_MEMSINK_UNLOCK();
         }
 
-        void put_bytes(const char* src, size_t len) {
+        void put_bytes(const char *src, size_t len)
+        {
             // Hot path: bulk copy when the write window doesn't wrap.
             const uint32_t cap = g_log_buf.buffer_size;
             if (len >= cap) {
@@ -105,15 +109,17 @@ namespace emblogx {
             EMBLOGX_MEMSINK_UNLOCK();
         }
 
-    }  // namespace
+    } // namespace
 
     // ---- Public reader API --------------------------------------------------
 
-    const LogTraceBuffer* memory_sink_buffer() {
+    const LogTraceBuffer *memory_sink_buffer()
+    {
         return &g_log_buf;
     }
 
-    size_t memory_sink_read(char* dst, size_t max_bytes, uint32_t* cursor) {
+    size_t memory_sink_read(char *dst, size_t max_bytes, uint32_t *cursor)
+    {
         if (dst == nullptr || cursor == nullptr || max_bytes == 0) {
             return 0;
         }
@@ -131,7 +137,7 @@ namespace emblogx {
             *cursor = oldest;
         }
         if (*cursor >= total) {
-            return 0;  // caller is up to date
+            return 0; // caller is up to date
         }
 
         uint32_t available = total - *cursor;
@@ -152,7 +158,8 @@ namespace emblogx {
         return available;
     }
 
-    void memory_sink_seek_oldest(uint32_t* cursor) {
+    void memory_sink_seek_oldest(uint32_t *cursor)
+    {
         if (cursor == nullptr) {
             return;
         }
@@ -163,7 +170,8 @@ namespace emblogx {
         *cursor = (total > cap) ? (total - cap) : 0;
     }
 
-    void memory_sink_seek_newest(uint32_t* cursor) {
+    void memory_sink_seek_newest(uint32_t *cursor)
+    {
         if (cursor == nullptr) {
             return;
         }
@@ -174,15 +182,17 @@ namespace emblogx {
 
     // ---- Sink ---------------------------------------------------------------
 
-    bool MemorySink::begin() {
+    bool MemorySink::begin()
+    {
         return true;
     }
 
-    void MemorySink::write(const Record& rec) {
+    void MemorySink::write(const Record &rec)
+    {
         if (rec.line == nullptr || rec.line_len == 0) {
             return;
         }
-        const char* out = effective_line(rec);
+        const char *out = effective_line(rec);
         const uint16_t out_len = effective_line_len(rec);
         if (out_len == 0) {
             return;
@@ -191,6 +201,6 @@ namespace emblogx {
         put_byte('\n');
     }
 
-}  // namespace emblogx
+} // namespace emblogx
 
-#endif  // EMBLOGX_ENABLE_SINK_MEMORY
+#endif // EMBLOGX_ENABLE_SINK_MEMORY

@@ -19,13 +19,14 @@
 #include "sinks/i_sink.h"
 #include "types.h"
 
-namespace emblogx {
+namespace emblogx
+{
 
     // ---- Sink registry ------------------------------------------------------
 
     // Register a sink. Returns false if the registry is full (EMBLOGX_MAX_SINKS).
     // Call this once per sink at boot, before producing any log records.
-    bool register_sink(ISink* sink);
+    bool register_sink(ISink *sink);
 
     // Number of currently registered sinks.
     uint8_t sink_count();
@@ -50,14 +51,14 @@ namespace emblogx {
     // pointer is stored, never copied. A NULL or unmatched module falls back
     // to the global level.
     // Returns false if the per-module table is full (small fixed cap).
-    bool set_module_level(const char* module, Level lvl);
+    bool set_module_level(const char *module, Level lvl);
 
     // Toggle a sink at runtime by index (0..sink_count()-1).
     void set_sink_enabled(uint8_t index, bool enabled);
     bool is_sink_enabled(uint8_t index);
 
     // Get a sink pointer by index. Returns nullptr if out of range.
-    ISink* sink_at(uint8_t index);
+    ISink *sink_at(uint8_t index);
 
     // ---- Time source -------------------------------------------------------
     //
@@ -115,17 +116,18 @@ namespace emblogx {
     // ---- The single log entry point ----------------------------------------
     // All printf-style wrappers ultimately call this. The `_force` variant
     // bypasses the rate limiter.
-    void log_va(uint8_t target, Level lvl, const char* module, const char* fmt, va_list args);
-    void log_va_force(uint8_t target, Level lvl, const char* module, const char* fmt, va_list args);
+    void log_va(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args);
+    void log_va_force(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args);
 
     // Convenience overload for non-printf callers.
-    inline void log(uint8_t target, Level lvl, const char* module, const char* fmt, ...)
-            __attribute__((format(printf, 4, 5)));
-    inline void log(uint8_t target, Level lvl, const char* module, const char* fmt, ...) {
+    inline void log(uint8_t target, Level lvl, const char *module, const char *fmt, ...)
+        __attribute__((format(printf, 4, 5)));
+    inline void log(uint8_t target, Level lvl, const char *module, const char *fmt, ...)
+    {
         va_list args;
         va_start(args, fmt);
         log_va(target, lvl, module, fmt, args);
         va_end(args);
     }
 
-}  // namespace emblogx
+} // namespace emblogx

@@ -19,36 +19,39 @@
 // routing decisions made by the core.
 // ----------------------------------------------------------------------------
 
-namespace {
+namespace
+{
 
     struct CapturedRecord {
-            uint8_t target;
-            ::emblogx::Level level;
-            std::string module;
-            std::string line;
+        uint8_t target;
+        ::emblogx::Level level;
+        std::string module;
+        std::string line;
     };
 
     class CapturingSink : public ::emblogx::ISink {
-        public:
-            uint8_t caps_ = ::emblogx::Capability::ALL;
-            ::emblogx::Mode mode_ = ::emblogx::Mode::Sync;
-            std::vector<CapturedRecord> seen;
+    public:
+        uint8_t caps_ = ::emblogx::Capability::ALL;
+        ::emblogx::Mode mode_ = ::emblogx::Mode::Sync;
+        std::vector<CapturedRecord> seen;
 
-            uint8_t capabilities() const override {
-                return caps_;
-            }
-            ::emblogx::Mode mode() const override {
-                return mode_;
-            }
+        uint8_t capabilities() const override
+        {
+            return caps_;
+        }
+        ::emblogx::Mode mode() const override
+        {
+            return mode_;
+        }
 
-            void write(const ::emblogx::Record& rec) override {
-                // Use effective_line/effective_line_len so this captor
-                // mirrors what a real sink would emit — including
-                // honouring set_show_timestamp(false).
-                seen.push_back({rec.target, rec.level,
-                                rec.module ? std::string(rec.module) : std::string(),
-                                std::string(effective_line(rec), effective_line_len(rec))});
-            }
+        void write(const ::emblogx::Record &rec) override
+        {
+            // Use effective_line/effective_line_len so this captor
+            // mirrors what a real sink would emit — including
+            // honouring set_show_timestamp(false).
+            seen.push_back({ rec.target, rec.level, rec.module ? std::string(rec.module) : std::string(),
+                             std::string(effective_line(rec), effective_line_len(rec)) });
+        }
     };
 
     // Sink storage — fixed-size array so pointers stay stable across the
@@ -63,13 +66,13 @@ namespace {
     CapturingSink g_test_sinks[MAX_TEST_SINKS];
     size_t g_test_sink_count = 0;
 
-    CapturingSink* fresh_sink(uint8_t caps = ::emblogx::Capability::ALL,
-                              ::emblogx::Mode mode = ::emblogx::Mode::Sync) {
+    CapturingSink *fresh_sink(uint8_t caps = ::emblogx::Capability::ALL, ::emblogx::Mode mode = ::emblogx::Mode::Sync)
+    {
         if (g_test_sink_count >= MAX_TEST_SINKS) {
             ADD_FAILURE() << "test sink pool exhausted";
             return nullptr;
         }
-        auto* sink = &g_test_sinks[g_test_sink_count++];
+        auto *sink = &g_test_sinks[g_test_sink_count++];
         sink->caps_ = caps;
         sink->mode_ = mode;
         sink->seen.clear();
@@ -78,15 +81,16 @@ namespace {
         return sink;
     }
 
-}  // namespace
+} // namespace
 
 // ----------------------------------------------------------------------------
 // Routing
 // ----------------------------------------------------------------------------
 
-TEST(Routing, LogTargetReachesLogSinkOnly) {
-    auto* log_sink = fresh_sink(::emblogx::Capability::LOG);
-    auto* audit_sink = fresh_sink(::emblogx::Capability::AUDIT);
+TEST(Routing, LogTargetReachesLogSinkOnly)
+{
+    auto *log_sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *audit_sink = fresh_sink(::emblogx::Capability::AUDIT);
 
     log_info("hello %d", 42);
 
@@ -100,9 +104,10 @@ TEST(Routing, LogTargetReachesLogSinkOnly) {
     EXPECT_EQ(audit_sink->seen.size(), before);
 }
 
-TEST(Routing, LogAuditTargetReachesBoth) {
-    auto* log_sink = fresh_sink(::emblogx::Capability::LOG);
-    auto* audit_sink = fresh_sink(::emblogx::Capability::AUDIT);
+TEST(Routing, LogAuditTargetReachesBoth)
+{
+    auto *log_sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *audit_sink = fresh_sink(::emblogx::Capability::AUDIT);
 
     size_t log_before = log_sink->seen.size();
     size_t audit_before = audit_sink->seen.size();
@@ -114,9 +119,10 @@ TEST(Routing, LogAuditTargetReachesBoth) {
     EXPECT_TRUE(log_sink->seen.back().line.find("EMERGENCY_STOP") != std::string::npos);
 }
 
-TEST(Routing, StatusTargetReachesStatusSinkOnly) {
-    auto* status_sink = fresh_sink(::emblogx::Capability::STATUS);
-    auto* log_sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(Routing, StatusTargetReachesStatusSinkOnly)
+{
+    auto *status_sink = fresh_sink(::emblogx::Capability::STATUS);
+    auto *log_sink = fresh_sink(::emblogx::Capability::LOG);
 
     size_t log_before = log_sink->seen.size();
     size_t status_before = status_sink->seen.size();
@@ -132,8 +138,9 @@ TEST(Routing, StatusTargetReachesStatusSinkOnly) {
 // Level filter
 // ----------------------------------------------------------------------------
 
-TEST(Level, GlobalLevelFiltersBelow) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(Level, GlobalLevelFiltersBelow)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     ::emblogx::set_global_level(::emblogx::Level::Warn);
 
     size_t before = sink->seen.size();
@@ -143,11 +150,12 @@ TEST(Level, GlobalLevelFiltersBelow) {
     EXPECT_EQ(sink->seen.size(), before + 1);
     EXPECT_TRUE(sink->seen.back().line.find("kept") != std::string::npos);
 
-    ::emblogx::set_global_level(::emblogx::Level::Info);  // restore
+    ::emblogx::set_global_level(::emblogx::Level::Info); // restore
 }
 
-TEST(Level, PerModuleLevelOverridesGlobal) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(Level, PerModuleLevelOverridesGlobal)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     ::emblogx::set_global_level(::emblogx::Level::Error);
     ::emblogx::set_module_level("noisy", ::emblogx::Level::Debug);
 
@@ -158,14 +166,15 @@ TEST(Level, PerModuleLevelOverridesGlobal) {
     EXPECT_EQ(sink->seen.size(), before + 1);
     EXPECT_EQ(sink->seen.back().module, "noisy");
 
-    ::emblogx::set_global_level(::emblogx::Level::Info);  // restore
+    ::emblogx::set_global_level(::emblogx::Level::Info); // restore
 }
 
 // ----------------------------------------------------------------------------
 // Memory sink (RTT-style ring buffer)
 // ----------------------------------------------------------------------------
 
-TEST(MemorySink, RoundTripsViaReader) {
+TEST(MemorySink, RoundTripsViaReader)
+{
     static ::emblogx::MemorySink memory;
     ::emblogx::register_sink(&memory);
     ::emblogx::init();
@@ -176,15 +185,16 @@ TEST(MemorySink, RoundTripsViaReader) {
 
     log_info("ring write %d", 7);
 
-    char buf[256] = {0};
+    char buf[256] = { 0 };
     size_t got = ::emblogx::memory_sink_read(buf, sizeof(buf) - 1, &cursor);
     ASSERT_GT(got, 0u);
     buf[got] = '\0';
     EXPECT_NE(std::string(buf).find("ring write 7"), std::string::npos);
 }
 
-TEST(MemorySink, MagicAndVersionStable) {
-    const auto* meta = ::emblogx::memory_sink_buffer();
+TEST(MemorySink, MagicAndVersionStable)
+{
+    const auto *meta = ::emblogx::memory_sink_buffer();
     ASSERT_NE(meta, nullptr);
     EXPECT_EQ(0, std::memcmp(meta->magic, "LOGBUF_V1", 9));
     EXPECT_EQ(meta->magic[9], '\0');
@@ -196,8 +206,9 @@ TEST(MemorySink, MagicAndVersionStable) {
 // Truncation
 // ----------------------------------------------------------------------------
 
-TEST(Format, LinesLongerThanLineMaxAreTruncatedNotCorrupted) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(Format, LinesLongerThanLineMaxAreTruncatedNotCorrupted)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
 
     // Generate a body bigger than EMBLOGX_LINE_MAX so the snprintf is forced
     // to truncate. The router must keep the line within bounds and never
@@ -216,8 +227,9 @@ TEST(Format, LinesLongerThanLineMaxAreTruncatedNotCorrupted) {
 // Structured event helpers
 // ----------------------------------------------------------------------------
 
-TEST(StructuredEvents, AuditEventCarriesCode) {
-    auto* sink = fresh_sink(::emblogx::Capability::AUDIT);
+TEST(StructuredEvents, AuditEventCarriesCode)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::AUDIT);
 
     audit_event(101, "cycle", "PROGRAM_SELECT idx=%d", 5);
 
@@ -226,8 +238,9 @@ TEST(StructuredEvents, AuditEventCarriesCode) {
     EXPECT_NE(sink->seen.back().line.find("PROGRAM_SELECT idx=5"), std::string::npos);
 }
 
-TEST(StructuredEvents, StatusEventCarriesCode) {
-    auto* sink = fresh_sink(::emblogx::Capability::STATUS);
+TEST(StructuredEvents, StatusEventCarriesCode)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::STATUS);
 
     status_event(7, "wifi", "state=disconnected");
 
@@ -239,8 +252,9 @@ TEST(StructuredEvents, StatusEventCarriesCode) {
 // Sink toggle
 // ----------------------------------------------------------------------------
 
-TEST(SinkToggle, DisabledSinksDontReceive) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(SinkToggle, DisabledSinksDontReceive)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     uint8_t idx = ::emblogx::sink_count() - 1;
 
     size_t before = sink->seen.size();
@@ -261,67 +275,79 @@ TEST(SinkToggle, DisabledSinksDontReceive) {
 #include "ungula/sd/i_file.h"
 #include "ungula/sd/i_filesystem.h"
 
-namespace {
+namespace
+{
 
     class MockSdFile : public ::ungula::sd::IFile {
-        public:
-            std::string data;
-            int flush_count = 0;
+    public:
+        std::string data;
+        int flush_count = 0;
 
-            size_t write(const void* buf, size_t len) override {
-                data.append(static_cast<const char*>(buf), len);
-                return len;
-            }
-            size_t read(void* /*buf*/, size_t /*len*/) override {
-                return 0;
-            }
-            bool flush() override {
-                ++flush_count;
-                return true;
-            }
-            void close() override {}
+        size_t write(const void *buf, size_t len) override
+        {
+            data.append(static_cast<const char *>(buf), len);
+            return len;
+        }
+        size_t read(void * /*buf*/, size_t /*len*/) override
+        {
+            return 0;
+        }
+        bool flush() override
+        {
+            ++flush_count;
+            return true;
+        }
+        void close() override
+        {
+        }
     };
 
     class MockSdFs : public ::ungula::sd::IFileSystem {
-        public:
-            bool mounted = false;
-            MockSdFile* last_file = nullptr;
+    public:
+        bool mounted = false;
+        MockSdFile *last_file = nullptr;
 
-            bool mount() override {
-                mounted = true;
-                return true;
-            }
-            void unmount() override {
-                mounted = false;
-            }
-            bool is_mounted() const override {
-                return mounted;
-            }
+        bool mount() override
+        {
+            mounted = true;
+            return true;
+        }
+        void unmount() override
+        {
+            mounted = false;
+        }
+        bool is_mounted() const override
+        {
+            return mounted;
+        }
 
-            ::ungula::sd::IFile* open(const char* /*path*/,
-                                      ::ungula::sd::OpenMode /*mode*/) override {
-                if (!mounted) {
-                    return nullptr;
-                }
-                last_file = new MockSdFile();
-                return last_file;
+        ::ungula::sd::IFile *open(const char * /*path*/, ::ungula::sd::OpenMode /*mode*/) override
+        {
+            if (!mounted) {
+                return nullptr;
             }
+            last_file = new MockSdFile();
+            return last_file;
+        }
 
-            bool free_space(::ungula::sd::SpaceInfo& /*out*/) const override {
-                return false;
-            }
-            bool remove(const char* /*path*/) override {
-                return false;
-            }
-            int list_dir(const char* /*dir_path*/, ::ungula::sd::DirEntryCallback /*cb*/,
-                         void* /*ctx*/) override {
-                return 0;
-            }
+        bool free_space(::ungula::sd::SpaceInfo & /*out*/) const override
+        {
+            return false;
+        }
+        bool remove(const char * /*path*/) override
+        {
+            return false;
+        }
+        int list_dir(const char * /*dir_path*/, ::ungula::sd::DirEntryCallback /*cb*/, void * /*ctx*/) override
+        {
+            return 0;
+        }
     };
 
-}  // namespace
+} // namespace
 
-TEST(SdSink, AuditRecordsReachMockFile) {
+TEST(SdSink, AuditRecordsReachMockFile)
+{
     static MockSdFs fs;
     fs.mount();
 
@@ -339,7 +365,8 @@ TEST(SdSink, AuditRecordsReachMockFile) {
     EXPECT_GE(fs.last_file->flush_count, 1);
 }
 
-TEST(SdSink, LogRecordsDontReachSdSink) {
+TEST(SdSink, LogRecordsDontReachSdSink)
+{
     // LOG-only records must NOT reach the SdSink (AUDIT capability only).
     static MockSdFs fs2;
     fs2.mount();
@@ -358,7 +385,7 @@ TEST(SdSink, LogRecordsDontReachSdSink) {
     // The file should not have grown — LOG records don't reach an AUDIT-only sink.
     EXPECT_EQ(fs2.last_file->data.size(), bytes_after_begin);
 }
-#endif  // EMBLOGX_ENABLE_SINK_SD
+#endif // EMBLOGX_ENABLE_SINK_SD
 
 // ----------------------------------------------------------------------------
 // Async dispatcher (host fallback)
@@ -370,22 +397,25 @@ TEST(SdSink, LogRecordsDontReachSdSink) {
 // ----------------------------------------------------------------------------
 #include "emblogx/async_dispatcher.h"
 
-namespace {
+namespace
+{
     struct AsyncCapture {
-            std::vector<std::string> lines;
-            std::vector<int64_t> timestamps;
-            std::vector<uint8_t> targets;
+        std::vector<std::string> lines;
+        std::vector<int64_t> timestamps;
+        std::vector<uint8_t> targets;
     };
 
-    void async_handler(const ::emblogx::Record& rec, void* ctx) {
-        auto* cap = static_cast<AsyncCapture*>(ctx);
+    void async_handler(const ::emblogx::Record &rec, void *ctx)
+    {
+        auto *cap = static_cast<AsyncCapture *>(ctx);
         cap->lines.emplace_back(rec.line, rec.line_len);
         cap->timestamps.push_back(rec.timestamp);
         cap->targets.push_back(rec.target);
     }
-}  // namespace
+} // namespace
 
-TEST(AsyncDispatcher, HandlerSeesEveryPushedRecordInOrder) {
+TEST(AsyncDispatcher, HandlerSeesEveryPushedRecordInOrder)
+{
     ::emblogx::AsyncDispatcher dispatcher;
     AsyncCapture cap;
     ASSERT_TRUE(dispatcher.start(async_handler, &cap, "test"));
@@ -412,7 +442,8 @@ TEST(AsyncDispatcher, HandlerSeesEveryPushedRecordInOrder) {
     dispatcher.stop();
 }
 
-TEST(AsyncDispatcher, PushBeforeStartIsRejected) {
+TEST(AsyncDispatcher, PushBeforeStartIsRejected)
+{
     ::emblogx::AsyncDispatcher dispatcher;
     ::emblogx::Record rec{};
     rec.target = ::emblogx::Target::LOG;
@@ -422,14 +453,15 @@ TEST(AsyncDispatcher, PushBeforeStartIsRejected) {
     EXPECT_FALSE(dispatcher.push(rec));
 }
 
-TEST(AsyncDispatcher, TimestampSurvivesAbove32BitWrap) {
+TEST(AsyncDispatcher, TimestampSurvivesAbove32BitWrap)
+{
     // The whole point of the uint64 Slot::timestamp fix — make sure a value
     // that does NOT fit in 32 bits comes out the other side intact.
     ::emblogx::AsyncDispatcher dispatcher;
     AsyncCapture cap;
     ASSERT_TRUE(dispatcher.start(async_handler, &cap, "test_64"));
 
-    constexpr uint64_t kBig = 0x1'0000'1234ULL;  // > 2^32
+    constexpr uint64_t kBig = 0x1 '0000' 1234ULL; // > 2^32
 
     ::emblogx::Record rec{};
     rec.target = ::emblogx::Target::LOG;
@@ -450,8 +482,9 @@ TEST(AsyncDispatcher, TimestampSurvivesAbove32BitWrap) {
 // Rate limiting
 // ----------------------------------------------------------------------------
 
-TEST(RateLimit, DropsRepeatedCallsWithinInterval) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(RateLimit, DropsRepeatedCallsWithinInterval)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);  // 10 s — effectively drops repeats in-test
@@ -465,12 +498,13 @@ TEST(RateLimit, DropsRepeatedCallsWithinInterval) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ErrorsAreRateLimited) {
+TEST(RateLimit, ErrorsAreRateLimited)
+{
     // Errors used to bypass the limiter, which produced flooded sinks
     // when an error fires every loop() iteration. They are now throttled
     // exactly like Info/Warn/Debug — the first error from a given fmt
     // lands and the next ones inside the window are dropped.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -484,13 +518,14 @@ TEST(RateLimit, ErrorsAreRateLimited) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ErrorPoolIsIndependentFromNonErrorPool) {
+TEST(RateLimit, ErrorPoolIsIndependentFromNonErrorPool)
+{
     // The whole point of the new design: a flood of non-error logs must
     // NOT consume budget belonging to errors. An error from a different
     // call site lands on its own clock, decided only by the last error
     // emitted for that fmt — not by any debug / info / warn that fired
     // in between.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -512,11 +547,12 @@ TEST(RateLimit, ErrorPoolIsIndependentFromNonErrorPool) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ErrorForceBypassesTheLimiter) {
+TEST(RateLimit, ErrorForceBypassesTheLimiter)
+{
     // Escape hatch for "this error must always land": log_error_force /
     // log_error_force_m skip the limiter just like the info/warn/debug
     // _force variants.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -529,8 +565,9 @@ TEST(RateLimit, ErrorForceBypassesTheLimiter) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ForceVariantsBypassTheLimiter) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(RateLimit, ForceVariantsBypassTheLimiter)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -546,8 +583,9 @@ TEST(RateLimit, ForceVariantsBypassTheLimiter) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, DifferentCallSitesDontThrottleEachOther) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(RateLimit, DifferentCallSitesDontThrottleEachOther)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -561,38 +599,40 @@ TEST(RateLimit, DifferentCallSitesDontThrottleEachOther) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ReopensAfterIntervalElapses) {
+TEST(RateLimit, ReopensAfterIntervalElapses)
+{
     // After the configured interval has passed, the same call site must be
     // allowed through again. Uses a short interval + real sleep so the
     // monotonic clock used by the core actually advances.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(50);
 
-    log_info("reopen test %d", 1);  // 1st: lands
-    log_info("reopen test %d", 2);  // 2nd: dropped (within window)
+    log_info("reopen test %d", 1); // 1st: lands
+    log_info("reopen test %d", 2); // 2nd: dropped (within window)
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-    log_info("reopen test %d", 3);  // window expired: lands
-    log_info("reopen test %d", 4);  // immediately after: dropped
+    log_info("reopen test %d", 3); // window expired: lands
+    log_info("reopen test %d", 4); // immediately after: dropped
     EXPECT_EQ(sink->seen.size(), baseline + 2);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-    log_info("reopen test %d", 5);  // window expired again: lands
+    log_info("reopen test %d", 5); // window expired again: lands
     EXPECT_EQ(sink->seen.size(), baseline + 3);
 
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ChangingIntervalAtRuntimeTakesEffect) {
+TEST(RateLimit, ChangingIntervalAtRuntimeTakesEffect)
+{
     // Lowering the interval while the limiter is running must let calls
     // through that would have been blocked under the previous, longer
     // interval — and vice versa.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -610,12 +650,13 @@ TEST(RateLimit, ChangingIntervalAtRuntimeTakesEffect) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, TableEvictionStillThrottlesActiveSites) {
+TEST(RateLimit, TableEvictionStillThrottlesActiveSites)
+{
     // The rate table is fixed-size (16 slots). Once it is full the oldest
     // entry is evicted to make room for new sites. The freshly-evicted site
     // becomes "unknown" and a single call from it goes through, but a site
     // that has been kept warm by recent calls must still be throttled.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     // The pool is process-global; earlier tests may have left entries
@@ -669,12 +710,13 @@ TEST(RateLimit, TableEvictionStillThrottlesActiveSites) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ModuleVariantsAreThrottledByFmtNotByModule) {
+TEST(RateLimit, ModuleVariantsAreThrottledByFmtNotByModule)
+{
     // The limiter keys on the fmt pointer, not the module — so the same
     // fmt called from two different modules in a row hits the same slot
     // and only the first one lands. This is intentional: a `loop()` that
     // logs the same line for two subsystems still floods the console.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -686,35 +728,37 @@ TEST(RateLimit, ModuleVariantsAreThrottledByFmtNotByModule) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ForceVariantDoesNotResetTheRegularSlot) {
+TEST(RateLimit, ForceVariantDoesNotResetTheRegularSlot)
+{
     // A `_force` call must not refresh the limiter's "last seen" timestamp
     // for the regular call site, because that would let a single force
     // call extend the throttle window indefinitely. Verify that after a
     // burst of forced calls, a normal call from the same fmt still lands
     // once the original interval has passed.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(50);
 
-    log_info("mixed %d", 0);        // lands, opens window
-    log_info_force("mixed %d", 1);  // forced: lands, must NOT touch slot
-    log_info_force("mixed %d", 2);  // forced: lands
-    log_info("mixed %d", 3);        // within window: dropped
+    log_info("mixed %d", 0); // lands, opens window
+    log_info_force("mixed %d", 1); // forced: lands, must NOT touch slot
+    log_info_force("mixed %d", 2); // forced: lands
+    log_info("mixed %d", 3); // within window: dropped
     EXPECT_EQ(sink->seen.size(), baseline + 3);
 
     std::this_thread::sleep_for(std::chrono::milliseconds(80));
 
-    log_info("mixed %d", 4);  // window expired: lands
+    log_info("mixed %d", 4); // window expired: lands
     EXPECT_EQ(sink->seen.size(), baseline + 4);
 
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ClearRateLimiterReopensThrottledSites) {
+TEST(RateLimit, ClearRateLimiterReopensThrottledSites)
+{
     // After clear_rate_limiter() every site is "unknown" again. The same
     // fmt that was just throttled must land on the very next call.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -731,11 +775,12 @@ TEST(RateLimit, ClearRateLimiterReopensThrottledSites) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ClearRateLimiterClearsBothPools) {
+TEST(RateLimit, ClearRateLimiterClearsBothPools)
+{
     // The error pool must also be wiped — otherwise a previously-throttled
     // error fmt would still be blocked after a clear that only touched
     // the normal pool.
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
@@ -752,8 +797,9 @@ TEST(RateLimit, ClearRateLimiterClearsBothPools) {
     log_set_rate_limit_ms(0);
 }
 
-TEST(RateLimit, ZeroDisablesLimiter) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(RateLimit, ZeroDisablesLimiter)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(0);
@@ -770,18 +816,21 @@ TEST(RateLimit, ZeroDisablesLimiter) {
 // has synced).
 // ----------------------------------------------------------------------------
 
-namespace {
+namespace
+{
     int64_t g_scripted_now = 0;
     int g_scripted_calls = 0;
 
-    int64_t scripted_now_ms() {
+    int64_t scripted_now_ms()
+    {
         ++g_scripted_calls;
         return g_scripted_now;
     }
-}  // namespace
+} // namespace
 
-TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered) {
-    ::emblogx::set_now_ms_provider(nullptr);  // back to built-in default
+TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered)
+{
+    ::emblogx::set_now_ms_provider(nullptr); // back to built-in default
 
     const int64_t a = ::emblogx::now_ms();
     // Default source is monotonic-since-boot — both calls must be
@@ -793,8 +842,9 @@ TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered) {
     EXPECT_EQ(::emblogx::get_now_ms_provider(), nullptr);
 }
 
-TEST(TimeSource, RegisteredProviderTakesEffectImmediately) {
-    g_scripted_now = 1'700'000'000'123LL;  // realistic Unix epoch ms
+TEST(TimeSource, RegisteredProviderTakesEffectImmediately)
+{
+    g_scripted_now = 1 '700' 000 '000' 123LL; // realistic Unix epoch ms
     g_scripted_calls = 0;
 
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
@@ -803,20 +853,21 @@ TEST(TimeSource, RegisteredProviderTakesEffectImmediately) {
     EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
     EXPECT_EQ(g_scripted_calls, 1);
 
-    g_scripted_now = 1'700'000'099'999LL;
+    g_scripted_now = 1 '700' 000 '099' 999LL;
     EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
     EXPECT_EQ(g_scripted_calls, 2);
 
-    ::emblogx::set_now_ms_provider(nullptr);  // teardown
+    ::emblogx::set_now_ms_provider(nullptr); // teardown
 }
 
-TEST(TimeSource, NullptrRevertsToDefault) {
+TEST(TimeSource, NullptrRevertsToDefault)
+{
     g_scripted_now = 42;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
     EXPECT_EQ(::emblogx::now_ms(), 42);
 
     ::emblogx::set_now_ms_provider(nullptr);
-    EXPECT_NE(::emblogx::now_ms(), 42);  // back on the monotonic clock
+    EXPECT_NE(::emblogx::now_ms(), 42); // back on the monotonic clock
     EXPECT_EQ(::emblogx::get_now_ms_provider(), nullptr);
 }
 
@@ -826,66 +877,71 @@ TEST(TimeSource, NullptrRevertsToDefault) {
 // `show_timestamp` flag on ISink.
 // ----------------------------------------------------------------------------
 
-TEST(TimestampPrefix, NoPrefixWithoutWallClockProvider) {
-    ::emblogx::set_now_ms_provider(nullptr);  // default monotonic-since-boot
+TEST(TimestampPrefix, NoPrefixWithoutWallClockProvider)
+{
+    ::emblogx::set_now_ms_provider(nullptr); // default monotonic-since-boot
     log_set_rate_limit_ms(0);
 
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     log_info("plain message");
 
     ASSERT_FALSE(sink->seen.empty());
-    const std::string& last = sink->seen.back().line;
+    const std::string &last = sink->seen.back().line;
     // No "[YYYY-…" prefix — monotonic-since-boot is below the wall-clock
     // threshold so the formatter skips the prefix entirely.
     EXPECT_EQ(last.rfind("[20", 0), std::string::npos);
     EXPECT_NE(last.find("plain message"), std::string::npos);
 }
 
-TEST(TimestampPrefix, AppearsWhenWallClockProviderReturnsRealEpoch) {
+TEST(TimestampPrefix, AppearsWhenWallClockProviderReturnsRealEpoch)
+{
     // 2023-11-14 22:13:20 UTC — well past the 2017 threshold.
-    g_scripted_now = 1'700'000'000'000LL;
+    g_scripted_now = 1 '700' 000 '000' 000LL;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
     log_set_rate_limit_ms(0);
 
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     log_info("timestamped message");
 
     ASSERT_FALSE(sink->seen.empty());
-    const std::string& last = sink->seen.back().line;
+    const std::string &last = sink->seen.back().line;
     EXPECT_EQ(last.rfind("[2023-11-14 22:13:20] ", 0), 0U);
     EXPECT_NE(last.find("timestamped message"), std::string::npos);
 
     ::emblogx::set_now_ms_provider(nullptr);
 }
 
-TEST(TimestampPrefix, PerSinkFlagSkipsThePrefix) {
-    g_scripted_now = 1'700'000'000'000LL;
+TEST(TimestampPrefix, PerSinkFlagSkipsThePrefix)
+{
+    g_scripted_now = 1 '700' 000 '000' 000LL;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
     log_set_rate_limit_ms(0);
 
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
-    sink->set_show_timestamp(false);  // opt out
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
+    sink->set_show_timestamp(false); // opt out
     log_info("naked message");
 
     ASSERT_FALSE(sink->seen.empty());
-    const std::string& last = sink->seen.back().line;
+    const std::string &last = sink->seen.back().line;
     // No timestamp prefix — sink stripped it. Header tokens still present.
     EXPECT_EQ(last.rfind("[2023-", 0), std::string::npos);
     EXPECT_NE(last.find("naked message"), std::string::npos);
 
-    sink->set_show_timestamp(true);  // teardown
+    sink->set_show_timestamp(true); // teardown
     ::emblogx::set_now_ms_provider(nullptr);
 }
 
-TEST(TimestampPrefix, FlagDefaultsTrueForNewSinks) {
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+TEST(TimestampPrefix, FlagDefaultsTrueForNewSinks)
+{
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     EXPECT_TRUE(sink->show_timestamp());
 }
 
-TEST(TimeSource, ProviderCarriesIntoRecordTimestamp) {
+TEST(TimeSource, ProviderCarriesIntoRecordTimestamp)
+{
     // Real wall-clock-ish value, well past uint32_t — proves the wider
     // signed type carries through Record::timestamp without truncation.
-    g_scripted_now = 1'763'808'000'123LL;
+    g_scripted_now = 1 '763' 808 '000' 123LL;
     g_scripted_calls = 0;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
 
@@ -894,12 +950,12 @@ TEST(TimeSource, ProviderCarriesIntoRecordTimestamp) {
     // construction would call it twice if the limiter were on, so disable
     // it for this test).
     log_set_rate_limit_ms(0);
-    auto* sink = fresh_sink(::emblogx::Capability::LOG);
+    auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t before = sink->seen.size();
 
     log_info("scripted timestamp test");
     EXPECT_EQ(sink->seen.size(), before + 1);
-    EXPECT_GT(g_scripted_calls, 0);  // the log call really used our source
+    EXPECT_GT(g_scripted_calls, 0); // the log call really used our source
 
     ::emblogx::set_now_ms_provider(nullptr);
 }
