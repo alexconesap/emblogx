@@ -461,7 +461,7 @@ TEST(AsyncDispatcher, TimestampSurvivesAbove32BitWrap)
     AsyncCapture cap;
     ASSERT_TRUE(dispatcher.start(async_handler, &cap, "test_64"));
 
-    constexpr uint64_t kBig = 0x1 '0000' 1234ULL; // > 2^32
+    constexpr uint64_t kBig = 0x1'0000'1234ULL; // > 2^32
 
     ::emblogx::Record rec{};
     rec.target = ::emblogx::Target::LOG;
@@ -487,7 +487,7 @@ TEST(RateLimit, DropsRepeatedCallsWithinInterval)
     auto *sink = fresh_sink(::emblogx::Capability::LOG);
     const size_t baseline = sink->seen.size();
 
-    log_set_rate_limit_ms(10'000);  // 10 s — effectively drops repeats in-test
+    log_set_rate_limit_ms(10'000); // 10 s — effectively drops repeats in-test
 
     for (int i = 0; i < 5; ++i) {
         log_info("rate-limited %d", i);
@@ -636,15 +636,15 @@ TEST(RateLimit, ChangingIntervalAtRuntimeTakesEffect)
     const size_t baseline = sink->seen.size();
 
     log_set_rate_limit_ms(10'000);
-    log_info("interval change %d", 1);  // lands
-    log_info("interval change %d", 2);  // dropped
+    log_info("interval change %d", 1); // lands
+    log_info("interval change %d", 2); // dropped
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     // Drop the limit to a very small value, sleep just past it, and the
     // same call site should pass again.
     log_set_rate_limit_ms(20);
     std::this_thread::sleep_for(std::chrono::milliseconds(40));
-    log_info("interval change %d", 3);  // lands
+    log_info("interval change %d", 3); // lands
     EXPECT_EQ(sink->seen.size(), baseline + 2);
 
     log_set_rate_limit_ms(0);
@@ -666,7 +666,7 @@ TEST(RateLimit, TableEvictionStillThrottlesActiveSites)
     log_set_rate_limit_ms(10'000);
 
     // Warm one site we want to stay throttled.
-    log_info("warm site");  // lands
+    log_info("warm site"); // lands
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     // Flood the table with 30 distinct fmt pointers — each is a separate
@@ -721,8 +721,8 @@ TEST(RateLimit, ModuleVariantsAreThrottledByFmtNotByModule)
 
     log_set_rate_limit_ms(10'000);
 
-    log_info_m("modA", "shared %d", 1);  // lands
-    log_info_m("modB", "shared %d", 2);  // same fmt pointer: dropped
+    log_info_m("modA", "shared %d", 1); // lands
+    log_info_m("modB", "shared %d", 2); // same fmt pointer: dropped
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     log_set_rate_limit_ms(0);
@@ -763,13 +763,13 @@ TEST(RateLimit, ClearRateLimiterReopensThrottledSites)
 
     log_set_rate_limit_ms(10'000);
 
-    log_info("clearable %d", 1);  // lands
-    log_info("clearable %d", 2);  // throttled
+    log_info("clearable %d", 1); // lands
+    log_info("clearable %d", 2); // throttled
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     log_clear_rate_limiter();
 
-    log_info("clearable %d", 3);  // lands again — pool was wiped
+    log_info("clearable %d", 3); // lands again — pool was wiped
     EXPECT_EQ(sink->seen.size(), baseline + 2);
 
     log_set_rate_limit_ms(0);
@@ -785,13 +785,13 @@ TEST(RateLimit, ClearRateLimiterClearsBothPools)
 
     log_set_rate_limit_ms(10'000);
 
-    log_error("clearable error");  // lands
-    log_error("clearable error");  // throttled
+    log_error("clearable error"); // lands
+    log_error("clearable error"); // throttled
     EXPECT_EQ(sink->seen.size(), baseline + 1);
 
     log_clear_rate_limiter();
 
-    log_error("clearable error");  // lands again
+    log_error("clearable error"); // lands again
     EXPECT_EQ(sink->seen.size(), baseline + 2);
 
     log_set_rate_limit_ms(0);
@@ -844,7 +844,7 @@ TEST(TimeSource, DefaultIsMonotonicWhenNoProviderRegistered)
 
 TEST(TimeSource, RegisteredProviderTakesEffectImmediately)
 {
-    g_scripted_now = 1 '700' 000 '000' 123LL; // realistic Unix epoch ms
+    g_scripted_now = 1'700'000'000'123LL; // realistic Unix epoch ms
     g_scripted_calls = 0;
 
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
@@ -853,7 +853,7 @@ TEST(TimeSource, RegisteredProviderTakesEffectImmediately)
     EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
     EXPECT_EQ(g_scripted_calls, 1);
 
-    g_scripted_now = 1 '700' 000 '099' 999LL;
+    g_scripted_now = 1'700'000'099'999LL;
     EXPECT_EQ(::emblogx::now_ms(), g_scripted_now);
     EXPECT_EQ(g_scripted_calls, 2);
 
@@ -896,7 +896,7 @@ TEST(TimestampPrefix, NoPrefixWithoutWallClockProvider)
 TEST(TimestampPrefix, AppearsWhenWallClockProviderReturnsRealEpoch)
 {
     // 2023-11-14 22:13:20 UTC — well past the 2017 threshold.
-    g_scripted_now = 1 '700' 000 '000' 000LL;
+    g_scripted_now = 1'700'000'000'000LL;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
     log_set_rate_limit_ms(0);
 
@@ -913,7 +913,7 @@ TEST(TimestampPrefix, AppearsWhenWallClockProviderReturnsRealEpoch)
 
 TEST(TimestampPrefix, PerSinkFlagSkipsThePrefix)
 {
-    g_scripted_now = 1 '700' 000 '000' 000LL;
+    g_scripted_now = 1'700'000'000'000LL;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
     log_set_rate_limit_ms(0);
 
@@ -941,7 +941,7 @@ TEST(TimeSource, ProviderCarriesIntoRecordTimestamp)
 {
     // Real wall-clock-ish value, well past uint32_t — proves the wider
     // signed type carries through Record::timestamp without truncation.
-    g_scripted_now = 1 '763' 808 '000' 123LL;
+    g_scripted_now = 1'763'808'000'123LL;
     g_scripted_calls = 0;
     ::emblogx::set_now_ms_provider(&scripted_now_ms);
 

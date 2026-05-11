@@ -333,7 +333,7 @@ namespace emblogx
             //      (or any other wall-clock source) is registered, and
             //      stays absent before that — no "[1970-01-01 00:00:NN]"
             //      noise sneaks into logs.
-            constexpr int64_t kWallClockThresholdMs = 1 '500' 000 '000' 000LL;
+            constexpr int64_t kWallClockThresholdMs = 1'500'000'000'000LL;
             const int64_t epoch_ms_value = now_ms();
 
             int prefix_len = 0;
