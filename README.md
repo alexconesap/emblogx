@@ -591,7 +591,7 @@ time source the host project plugged in:
 
 ```cpp
 #include <emblogx/logger_core.h>
-#include <ungula/core/time/time_control.h>      // UngulaCore — only the host project
+#include <ungula/core/time/time.h>      // UngulaCore — only the host project
                                     // needs this; emblogx itself stays
                                     // independent of UngulaCore.
 

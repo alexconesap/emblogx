@@ -199,7 +199,7 @@ bypass; Error level always bypasses.
 ```cpp
 #include <emblogx/logger.h>
 #include <emblogx/logger_core.h>
-#include <ungula/core/time/time_control.h>
+#include <ungula/core/time/time.h>
 
 void setup() {
     emblogx::set_now_ms_provider(&ungula::core::time::now);
