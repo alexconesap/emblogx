@@ -62,20 +62,20 @@
 namespace emblogx
 {
 
-    namespace detail
-    {
+namespace detail
+{
 
         inline void emit(uint8_t target, Level lvl, const char *module, const char *fmt, ...)
             __attribute__((format(printf, 4, 5)));
         inline void emit(uint8_t target, Level lvl, const char *module, const char *fmt, ...)
         {
-            va_list args;
-            va_start(args, fmt);
-            log_va(target, lvl, module, fmt, args);
-            va_end(args);
+                va_list args;
+                va_start(args, fmt);
+                log_va(target, lvl, module, fmt, args);
+                va_end(args);
         }
 
-    } // namespace detail
+} // namespace detail
 
 } // namespace emblogx
 
@@ -93,39 +93,41 @@ namespace emblogx
 
 // ===== LOG (operational) ===================================================
 
-#define EMBLOGX_DEFINE_WRAPPERS(NAME, TARGET_BITS, LEVEL)                                                       \
-    inline void NAME(const char *fmt, ...) __attribute__((format(printf, 1, 2)));                               \
-    inline void NAME(const char *fmt, ...)                                                                      \
-    {                                                                                                           \
-        va_list args;                                                                                           \
-        va_start(args, fmt);                                                                                    \
-        ::emblogx::log_va((TARGET_BITS), (LEVEL), nullptr, fmt, args);                                          \
-        va_end(args);                                                                                           \
-    }                                                                                                           \
-    inline void NAME##_m(const char *module, const char *fmt, ...) __attribute__((format(printf, 2, 3)));       \
-    inline void NAME##_m(const char *module, const char *fmt, ...)                                              \
-    {                                                                                                           \
-        va_list args;                                                                                           \
-        va_start(args, fmt);                                                                                    \
-        ::emblogx::log_va((TARGET_BITS), (LEVEL), module, fmt, args);                                           \
-        va_end(args);                                                                                           \
-    }                                                                                                           \
-    inline void NAME##_force(const char *fmt, ...) __attribute__((format(printf, 1, 2)));                       \
-    inline void NAME##_force(const char *fmt, ...)                                                              \
-    {                                                                                                           \
-        va_list args;                                                                                           \
-        va_start(args, fmt);                                                                                    \
-        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), nullptr, fmt, args);                                    \
-        va_end(args);                                                                                           \
-    }                                                                                                           \
-    inline void NAME##_force_m(const char *module, const char *fmt, ...) __attribute__((format(printf, 2, 3))); \
-    inline void NAME##_force_m(const char *module, const char *fmt, ...)                                        \
-    {                                                                                                           \
-        va_list args;                                                                                           \
-        va_start(args, fmt);                                                                                    \
-        ::emblogx::log_va_force((TARGET_BITS), (LEVEL), module, fmt, args);                                     \
-        va_end(args);                                                                                           \
-    }
+#define EMBLOGX_DEFINE_WRAPPERS(NAME, TARGET_BITS, LEVEL)                                     \
+        inline void NAME(const char *fmt, ...) __attribute__((format(printf, 1, 2)));         \
+        inline void NAME(const char *fmt, ...)                                                \
+        {                                                                                     \
+                va_list args;                                                                 \
+                va_start(args, fmt);                                                          \
+                ::emblogx::log_va((TARGET_BITS), (LEVEL), nullptr, fmt, args);                \
+                va_end(args);                                                                 \
+        }                                                                                     \
+        inline void NAME##_m(const char *module, const char *fmt, ...)                        \
+            __attribute__((format(printf, 2, 3)));                                            \
+        inline void NAME##_m(const char *module, const char *fmt, ...)                        \
+        {                                                                                     \
+                va_list args;                                                                 \
+                va_start(args, fmt);                                                          \
+                ::emblogx::log_va((TARGET_BITS), (LEVEL), module, fmt, args);                 \
+                va_end(args);                                                                 \
+        }                                                                                     \
+        inline void NAME##_force(const char *fmt, ...) __attribute__((format(printf, 1, 2))); \
+        inline void NAME##_force(const char *fmt, ...)                                        \
+        {                                                                                     \
+                va_list args;                                                                 \
+                va_start(args, fmt);                                                          \
+                ::emblogx::log_va_force((TARGET_BITS), (LEVEL), nullptr, fmt, args);          \
+                va_end(args);                                                                 \
+        }                                                                                     \
+        inline void NAME##_force_m(const char *module, const char *fmt, ...)                  \
+            __attribute__((format(printf, 2, 3)));                                            \
+        inline void NAME##_force_m(const char *module, const char *fmt, ...)                  \
+        {                                                                                     \
+                va_list args;                                                                 \
+                va_start(args, fmt);                                                          \
+                ::emblogx::log_va_force((TARGET_BITS), (LEVEL), module, fmt, args);           \
+                va_end(args);                                                                 \
+        }
 
 // LOG ----------------------------------------------------------------------
 EMBLOGX_DEFINE_WRAPPERS(log_info, ::emblogx::Target::LOG, ::emblogx::Level::Info)
@@ -145,19 +147,28 @@ EMBLOGX_DEFINE_WRAPPERS(status_warn, ::emblogx::Target::STATUS, ::emblogx::Level
 EMBLOGX_DEFINE_WRAPPERS(status_error, ::emblogx::Target::STATUS, ::emblogx::Level::Error)
 
 // LOG | AUDIT --------------------------------------------------------------
-EMBLOGX_DEFINE_WRAPPERS(log_audit_info, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT, ::emblogx::Level::Info)
-EMBLOGX_DEFINE_WRAPPERS(log_audit_warn, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT, ::emblogx::Level::Warn)
-EMBLOGX_DEFINE_WRAPPERS(log_audit_error, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT, ::emblogx::Level::Error)
-EMBLOGX_DEFINE_WRAPPERS(log_audit_debug, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT, ::emblogx::Level::Debug)
+EMBLOGX_DEFINE_WRAPPERS(log_audit_info, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT,
+                        ::emblogx::Level::Info)
+EMBLOGX_DEFINE_WRAPPERS(log_audit_warn, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT,
+                        ::emblogx::Level::Warn)
+EMBLOGX_DEFINE_WRAPPERS(log_audit_error, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT,
+                        ::emblogx::Level::Error)
+EMBLOGX_DEFINE_WRAPPERS(log_audit_debug, ::emblogx::Target::LOG | ::emblogx::Target::AUDIT,
+                        ::emblogx::Level::Debug)
 
 // LOG | STATUS -------------------------------------------------------------
-EMBLOGX_DEFINE_WRAPPERS(log_status_info, ::emblogx::Target::LOG | ::emblogx::Target::STATUS, ::emblogx::Level::Info)
-EMBLOGX_DEFINE_WRAPPERS(log_status_warn, ::emblogx::Target::LOG | ::emblogx::Target::STATUS, ::emblogx::Level::Warn)
-EMBLOGX_DEFINE_WRAPPERS(log_status_error, ::emblogx::Target::LOG | ::emblogx::Target::STATUS, ::emblogx::Level::Error)
+EMBLOGX_DEFINE_WRAPPERS(log_status_info, ::emblogx::Target::LOG | ::emblogx::Target::STATUS,
+                        ::emblogx::Level::Info)
+EMBLOGX_DEFINE_WRAPPERS(log_status_warn, ::emblogx::Target::LOG | ::emblogx::Target::STATUS,
+                        ::emblogx::Level::Warn)
+EMBLOGX_DEFINE_WRAPPERS(log_status_error, ::emblogx::Target::LOG | ::emblogx::Target::STATUS,
+                        ::emblogx::Level::Error)
 
 // AUDIT | STATUS -----------------------------------------------------------
-EMBLOGX_DEFINE_WRAPPERS(audit_status_info, ::emblogx::Target::AUDIT | ::emblogx::Target::STATUS, ::emblogx::Level::Info)
-EMBLOGX_DEFINE_WRAPPERS(audit_status_warn, ::emblogx::Target::AUDIT | ::emblogx::Target::STATUS, ::emblogx::Level::Warn)
+EMBLOGX_DEFINE_WRAPPERS(audit_status_info, ::emblogx::Target::AUDIT | ::emblogx::Target::STATUS,
+                        ::emblogx::Level::Info)
+EMBLOGX_DEFINE_WRAPPERS(audit_status_warn, ::emblogx::Target::AUDIT | ::emblogx::Target::STATUS,
+                        ::emblogx::Level::Warn)
 EMBLOGX_DEFINE_WRAPPERS(audit_status_error, ::emblogx::Target::AUDIT | ::emblogx::Target::STATUS,
                         ::emblogx::Level::Error)
 
@@ -176,26 +187,30 @@ EMBLOGX_DEFINE_WRAPPERS(all_error, ::emblogx::Target::ALL, ::emblogx::Level::Err
 // sinks (e.g. binary memory tracer) can later look at it via the Record
 // struct directly.
 
-inline void audit_event(int code, const char *module, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+inline void audit_event(int code, const char *module, const char *fmt, ...)
+    __attribute__((format(printf, 3, 4)));
 inline void audit_event(int code, const char *module, const char *fmt, ...)
 {
-    char body[EMBLOGX_LINE_MAX];
-    va_list args;
-    va_start(args, fmt);
-    std::vsnprintf(body, sizeof(body), fmt, args);
-    va_end(args);
-    ::emblogx::detail::emit(::emblogx::Target::AUDIT, ::emblogx::Level::Info, module, "code=%d %s", code, body);
+        char body[EMBLOGX_LINE_MAX];
+        va_list args;
+        va_start(args, fmt);
+        std::vsnprintf(body, sizeof(body), fmt, args);
+        va_end(args);
+        ::emblogx::detail::emit(::emblogx::Target::AUDIT, ::emblogx::Level::Info, module,
+                                "code=%d %s", code, body);
 }
 
-inline void status_event(int code, const char *module, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
+inline void status_event(int code, const char *module, const char *fmt, ...)
+    __attribute__((format(printf, 3, 4)));
 inline void status_event(int code, const char *module, const char *fmt, ...)
 {
-    char body[EMBLOGX_LINE_MAX];
-    va_list args;
-    va_start(args, fmt);
-    std::vsnprintf(body, sizeof(body), fmt, args);
-    va_end(args);
-    ::emblogx::detail::emit(::emblogx::Target::STATUS, ::emblogx::Level::Info, module, "code=%d %s", code, body);
+        char body[EMBLOGX_LINE_MAX];
+        va_list args;
+        va_start(args, fmt);
+        std::vsnprintf(body, sizeof(body), fmt, args);
+        va_end(args);
+        ::emblogx::detail::emit(::emblogx::Target::STATUS, ::emblogx::Level::Info, module,
+                                "code=%d %s", code, body);
 }
 
 // ---- Rate limiting --------------------------------------------------------
@@ -220,19 +235,19 @@ inline void status_event(int code, const char *module, const char *fmt, ...)
 
 inline void log_set_rate_limit_ms(uint32_t interval_ms)
 {
-    ::emblogx::set_rate_limit_ms(interval_ms);
+        ::emblogx::set_rate_limit_ms(interval_ms);
 }
 
 inline uint32_t log_get_rate_limit_ms()
 {
-    return ::emblogx::get_rate_limit_ms();
+        return ::emblogx::get_rate_limit_ms();
 }
 
 // Wipe both rate-limiter pools (normal + error). Use after a phase change
 // or during recovery when the in-memory cadence is no longer relevant.
 inline void log_clear_rate_limiter()
 {
-    ::emblogx::clear_rate_limiter();
+        ::emblogx::clear_rate_limiter();
 }
 
 // ---- Lifecycle ------------------------------------------------------------
@@ -253,10 +268,10 @@ inline void log_clear_rate_limiter()
 
 inline void log_init()
 {
-    ::emblogx::init();
+        ::emblogx::init();
 }
 
 inline void log_flush()
 {
-    ::emblogx::flush_all();
+        ::emblogx::flush_all();
 }

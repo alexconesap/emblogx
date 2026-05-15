@@ -13,47 +13,47 @@
 namespace emblogx
 {
 
-    // ---- Severity ----------------------------------------------------------
-    enum class Level : uint8_t {
+// ---- Severity ----------------------------------------------------------
+enum class Level : uint8_t {
         Debug = 0,
         Info = 1,
         Warn = 2,
         Error = 3,
-    };
+};
 
-    // ---- Routing targets (bitmask) -----------------------------------------
-    // A record carries a target bitmask. Each registered sink declares the
-    // capabilities it supports. The router walks the sinks and dispatches the
-    // record only to those whose capabilities intersect the record's target.
-    namespace Target
-    {
+// ---- Routing targets (bitmask) -----------------------------------------
+// A record carries a target bitmask. Each registered sink declares the
+// capabilities it supports. The router walks the sinks and dispatches the
+// record only to those whose capabilities intersect the record's target.
+namespace Target
+{
         constexpr uint8_t LOG = 1U << 0; // operational logs
         constexpr uint8_t AUDIT = 1U << 1; // regulatory / FDA audit trail
         constexpr uint8_t STATUS = 1U << 2; // state / event reporting
         constexpr uint8_t ALL = LOG | AUDIT | STATUS;
-    } // namespace Target
+} // namespace Target
 
-    // ---- Sink capability bitmask -------------------------------------------
-    // Same shape as Target — a sink declares which targets it accepts.
-    namespace Capability
-    {
+// ---- Sink capability bitmask -------------------------------------------
+// Same shape as Target — a sink declares which targets it accepts.
+namespace Capability
+{
         constexpr uint8_t LOG = Target::LOG;
         constexpr uint8_t AUDIT = Target::AUDIT;
         constexpr uint8_t STATUS = Target::STATUS;
         constexpr uint8_t ALL = Target::ALL;
-    } // namespace Capability
+} // namespace Capability
 
-    // ---- Synchronous vs asynchronous dispatch ------------------------------
-    enum class Mode : uint8_t {
+// ---- Synchronous vs asynchronous dispatch ------------------------------
+enum class Mode : uint8_t {
         Sync, // direct call inside the producer task — fast, no queue
         Async, // hand off to a worker task via a static queue — non-blocking
-    };
+};
 
-    // ---- Internal record passed to sinks -----------------------------------
-    // The record's text field is owned by the caller (a stack buffer inside
-    // log_write). Sinks must consume / copy it before returning — the pointer
-    // becomes invalid as soon as log_write returns.
-    struct Record {
+// ---- Internal record passed to sinks -----------------------------------
+// The record's text field is owned by the caller (a stack buffer inside
+// log_write). Sinks must consume / copy it before returning — the pointer
+// becomes invalid as soon as log_write returns.
+struct Record {
         uint8_t target; // Target::* bitmask
         Level level;
         const char *module; // stable string literal — never copied
@@ -73,22 +73,22 @@ namespace emblogx
         // Signed 64-bit so it never wraps and so
         // diffs between two records produce a
         // sane signed result.
-    };
+};
 
-    // ---- Helpers ------------------------------------------------------------
-    inline const char *levelName(Level lvl)
-    {
+// ---- Helpers ------------------------------------------------------------
+inline const char *levelName(Level lvl)
+{
         switch (lvl) {
         case Level::Debug:
-            return "DEBUG";
+                return "DEBUG";
         case Level::Info:
-            return "INFO";
+                return "INFO";
         case Level::Warn:
-            return "WARN";
+                return "WARN";
         case Level::Error:
-            return "ERROR";
+                return "ERROR";
         }
         return "INFO";
-    }
+}
 
 } // namespace emblogx

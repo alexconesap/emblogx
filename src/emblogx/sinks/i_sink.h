@@ -9,18 +9,18 @@
 namespace emblogx
 {
 
-    // Sink interface — every concrete sink (console, memory, http, sd, ...)
-    // implements this. The router holds a static array of pointers, no heap.
-    //
-    // Lifetime:
-    //   sinks are static instances declared at file scope by the host project
-    //   and registered once at boot. They live forever — there is no remove().
-    //
-    // Threading:
-    //   write() is called from the producer task (whoever called log_*) for
-    //   sync sinks, and from a dedicated worker task for async sinks. Each
-    //   sink is responsible for its own internal locking if it needs any.
-    class ISink {
+// Sink interface — every concrete sink (console, memory, http, sd, ...)
+// implements this. The router holds a static array of pointers, no heap.
+//
+// Lifetime:
+//   sinks are static instances declared at file scope by the host project
+//   and registered once at boot. They live forever — there is no remove().
+//
+// Threading:
+//   write() is called from the producer task (whoever called log_*) for
+//   sync sinks, and from a dedicated worker task for async sinks. Each
+//   sink is responsible for its own internal locking if it needs any.
+class ISink {
     public:
         virtual ~ISink() = default;
 
@@ -34,7 +34,7 @@ namespace emblogx
         // throw. Return false to disable the sink at runtime.
         virtual bool begin()
         {
-            return true;
+                return true;
         }
 
         // Called by the router for sync sinks, or by the worker task for
@@ -50,7 +50,7 @@ namespace emblogx
         // Optional human-readable name for diagnostics.
         virtual const char *name() const
         {
-            return "sink";
+                return "sink";
         }
 
         // ---- Timestamp prefix gating ----------------------------------
@@ -66,12 +66,12 @@ namespace emblogx
 
         void set_show_timestamp(bool enabled)
         {
-            show_timestamp_ = enabled;
+                show_timestamp_ = enabled;
         }
 
         virtual bool show_timestamp() const
         {
-            return show_timestamp_;
+                return show_timestamp_;
         }
 
         // Helpers — every concrete sink writes `effective_line` /
@@ -80,17 +80,17 @@ namespace emblogx
         // time: just a pointer arithmetic / subtraction.
         const char *effective_line(const Record &rec) const
         {
-            if (show_timestamp() || rec.timestamp_prefix_len == 0) {
-                return rec.line;
-            }
-            return rec.line + rec.timestamp_prefix_len;
+                if (show_timestamp() || rec.timestamp_prefix_len == 0) {
+                        return rec.line;
+                }
+                return rec.line + rec.timestamp_prefix_len;
         }
         uint16_t effective_line_len(const Record &rec) const
         {
-            if (show_timestamp() || rec.timestamp_prefix_len == 0) {
-                return rec.line_len;
-            }
-            return static_cast<uint16_t>(rec.line_len - rec.timestamp_prefix_len);
+                if (show_timestamp() || rec.timestamp_prefix_len == 0) {
+                        return rec.line_len;
+                }
+                return static_cast<uint16_t>(rec.line_len - rec.timestamp_prefix_len);
         }
 
     protected:
@@ -100,6 +100,6 @@ namespace emblogx
         // already carries `Record::timestamp` as a separate numeric
         // field.
         bool show_timestamp_ = true;
-    };
+};
 
 } // namespace emblogx

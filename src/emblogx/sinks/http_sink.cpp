@@ -14,84 +14,84 @@
 namespace emblogx
 {
 
-    bool HttpSink::begin()
-    {
+bool HttpSink::begin()
+{
         if (url_ == nullptr || url_[0] == '\0') {
-            return false;
+                return false;
         }
         return dispatcher_.start(&HttpSink::on_record, this, "emblogx_http",
                                  /*stack*/ 8192, /*pri*/ 1, /*core*/ 1);
-    }
+}
 
-    void HttpSink::write(const Record &rec)
-    {
+void HttpSink::write(const Record &rec)
+{
         dispatcher_.push(rec);
-    }
+}
 
-    // Append one JSON-escaped character into `out` at position `*pos`. Returns
-    // false if there isn't enough room for the worst-case 6-byte expansion of
-    // a single source byte (\u00XX). The caller is responsible for stopping
-    // the message early when this returns false.
-    //
-    // RFC 8259 §7: characters that MUST be escaped are " \ and any control
-    // character in 0x00..0x1F. We use the short forms for the common ones
-    // (\b \f \n \r \t) and the \u00XX form for everything else.
-    static bool json_escape_byte(char *out, size_t cap, int *pos, char chr)
-    {
+// Append one JSON-escaped character into `out` at position `*pos`. Returns
+// false if there isn't enough room for the worst-case 6-byte expansion of
+// a single source byte (\u00XX). The caller is responsible for stopping
+// the message early when this returns false.
+//
+// RFC 8259 §7: characters that MUST be escaped are " \ and any control
+// character in 0x00..0x1F. We use the short forms for the common ones
+// (\b \f \n \r \t) and the \u00XX form for everything else.
+static bool json_escape_byte(char *out, size_t cap, int *pos, char chr)
+{
         const int p = *pos;
         if (p + 6 > static_cast<int>(cap)) {
-            return false;
+                return false;
         }
         auto put = [&](char b) { out[(*pos)++] = b; };
         switch (chr) {
         case '"':
-            put('\\');
-            put('"');
-            return true;
-        case '\\':
-            put('\\');
-            put('\\');
-            return true;
-        case '\b':
-            put('\\');
-            put('b');
-            return true;
-        case '\f':
-            put('\\');
-            put('f');
-            return true;
-        case '\n':
-            put('\\');
-            put('n');
-            return true;
-        case '\r':
-            put('\\');
-            put('r');
-            return true;
-        case '\t':
-            put('\\');
-            put('t');
-            return true;
-        default: {
-            const auto byte = static_cast<unsigned char>(chr);
-            if (byte < 0x20U) {
-                static const char kHex[] = "0123456789abcdef";
                 put('\\');
-                put('u');
-                put('0');
-                put('0');
-                put(kHex[(byte >> 4) & 0xFU]);
-                put(kHex[byte & 0xFU]);
-            } else {
-                put(chr);
-            }
-            return true;
+                put('"');
+                return true;
+        case '\\':
+                put('\\');
+                put('\\');
+                return true;
+        case '\b':
+                put('\\');
+                put('b');
+                return true;
+        case '\f':
+                put('\\');
+                put('f');
+                return true;
+        case '\n':
+                put('\\');
+                put('n');
+                return true;
+        case '\r':
+                put('\\');
+                put('r');
+                return true;
+        case '\t':
+                put('\\');
+                put('t');
+                return true;
+        default: {
+                const auto byte = static_cast<unsigned char>(chr);
+                if (byte < 0x20U) {
+                        static const char kHex[] = "0123456789abcdef";
+                        put('\\');
+                        put('u');
+                        put('0');
+                        put('0');
+                        put(kHex[(byte >> 4) & 0xFU]);
+                        put(kHex[byte & 0xFU]);
+                } else {
+                        put(chr);
+                }
+                return true;
         }
         }
-    }
+}
 
-    void HttpSink::on_record(const Record &rec, void *ctx)
-    {
+void HttpSink::on_record(const Record &rec, void *ctx)
+{
         auto *self = static_cast<HttpSink *>(ctx);
 
         // Build a small JSON envelope. We avoid any JSON library — the message
@@ -111,20 +111,21 @@ namespace emblogx
         int n = std::snprintf(body, sizeof(body), "{\"target\":%u,\"level\":%u,\"module\":\"",
                               static_cast<unsigned>(rec.target), static_cast<unsigned>(rec.level));
         if (n < 0 || n >= static_cast<int>(sizeof(body))) {
-            return;
+                return;
         }
 
         const char *mod = rec.module != nullptr ? rec.module : "";
         for (size_t i = 0; mod[i] != '\0'; ++i) {
-            if (!json_escape_byte(body, sizeof(body), &n, mod[i])) {
-                return;
-            }
+                if (!json_escape_byte(body, sizeof(body), &n, mod[i])) {
+                        return;
+                }
         }
 
-        int n2 = std::snprintf(body + n, sizeof(body) - static_cast<size_t>(n), "\",\"timestamp\":%llu,\"message\":\"",
+        int n2 = std::snprintf(body + n, sizeof(body) - static_cast<size_t>(n),
+                               "\",\"timestamp\":%llu,\"message\":\"",
                                static_cast<unsigned long long>(rec.timestamp));
         if (n2 < 0 || n + n2 >= static_cast<int>(sizeof(body))) {
-            return;
+                return;
         }
         n += n2;
 
@@ -137,12 +138,12 @@ namespace emblogx
         const char *msg = self->effective_line(rec);
         const uint16_t msg_len = self->effective_line_len(rec);
         for (uint16_t i = 0; i < msg_len; ++i) {
-            if (!json_escape_byte(body, sizeof(body), &n, msg[i])) {
-                return;
-            }
+                if (!json_escape_byte(body, sizeof(body), &n, msg[i])) {
+                        return;
+                }
         }
         if (n + 2 > static_cast<int>(sizeof(body))) {
-            return;
+                return;
         }
         body[n++] = '"';
         body[n++] = '}';
@@ -151,7 +152,7 @@ namespace emblogx
         // thing the caller can do with a failure here is log it, which would
         // recurse into us. The next status push from the host will retry.
         (void)ungula::net::http::httpPost(self->url_, body, n);
-    }
+}
 
 } // namespace emblogx
 

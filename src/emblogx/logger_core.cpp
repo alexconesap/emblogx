@@ -17,17 +17,17 @@
 namespace emblogx
 {
 
-    // ---- Static state -------------------------------------------------------
-    // Everything here is process-wide and lock-free for the producer hot path.
-    // Sink list is fixed-capacity, written only at boot, read every log call.
+// ---- Static state -------------------------------------------------------
+// Everything here is process-wide and lock-free for the producer hot path.
+// Sink list is fixed-capacity, written only at boot, read every log call.
 
-    namespace
-    {
+namespace
+{
         constexpr uint8_t MODULE_LEVEL_SLOTS = 8;
 
         struct ModuleLevel {
-            const char *name; // stable literal pointer
-            Level level;
+                const char *name; // stable literal pointer
+                Level level;
         };
 
         ISink *g_sinks[EMBLOGX_MAX_SINKS] = {};
@@ -56,8 +56,8 @@ namespace emblogx
         constexpr uint8_t RATE_SLOTS = 16;
 
         struct RateEntry {
-            const char *fmt;
-            uint64_t last_ms;
+                const char *fmt;
+                uint64_t last_ms;
         };
 
         RateEntry g_rate_entries_normal[RATE_SLOTS] = {};
@@ -68,181 +68,183 @@ namespace emblogx
         // `pool` is one of the two arrays above — caller picks based on level.
         bool rate_limited(RateEntry *pool, const char *fmt, uint64_t now)
         {
-            if (g_rate_limit_ms == 0 || fmt == nullptr) {
+                if (g_rate_limit_ms == 0 || fmt == nullptr) {
+                        return false;
+                }
+                uint8_t oldest = 0;
+                uint64_t oldest_ts = UINT64_MAX;
+                uint8_t free_slot = RATE_SLOTS;
+                for (uint8_t i = 0; i < RATE_SLOTS; ++i) {
+                        if (pool[i].fmt == fmt) {
+                                if (now - pool[i].last_ms < g_rate_limit_ms) {
+                                        return true;
+                                }
+                                pool[i].last_ms = now;
+                                return false;
+                        }
+                        if (pool[i].fmt == nullptr && free_slot == RATE_SLOTS) {
+                                free_slot = i;
+                        }
+                        if (pool[i].last_ms < oldest_ts) {
+                                oldest_ts = pool[i].last_ms;
+                                oldest = i;
+                        }
+                }
+                const uint8_t target_slot = (free_slot < RATE_SLOTS) ? free_slot : oldest;
+                pool[target_slot] = RateEntry{ fmt, now };
                 return false;
-            }
-            uint8_t oldest = 0;
-            uint64_t oldest_ts = UINT64_MAX;
-            uint8_t free_slot = RATE_SLOTS;
-            for (uint8_t i = 0; i < RATE_SLOTS; ++i) {
-                if (pool[i].fmt == fmt) {
-                    if (now - pool[i].last_ms < g_rate_limit_ms) {
-                        return true;
-                    }
-                    pool[i].last_ms = now;
-                    return false;
-                }
-                if (pool[i].fmt == nullptr && free_slot == RATE_SLOTS) {
-                    free_slot = i;
-                }
-                if (pool[i].last_ms < oldest_ts) {
-                    oldest_ts = pool[i].last_ms;
-                    oldest = i;
-                }
-            }
-            const uint8_t target_slot = (free_slot < RATE_SLOTS) ? free_slot : oldest;
-            pool[target_slot] = RateEntry{ fmt, now };
-            return false;
         }
 
         // Effective level for a record — checks the per-module override first,
         // then falls back to the global level.
         Level effective_level(const char *module)
         {
-            if (module != nullptr) {
-                for (uint8_t i = 0; i < g_module_count; ++i) {
-                    if (g_module_levels[i].name == module || // pointer match (literal interning)
-                        std::strcmp(g_module_levels[i].name, module) == 0) {
-                        return g_module_levels[i].level;
-                    }
+                if (module != nullptr) {
+                        for (uint8_t i = 0; i < g_module_count; ++i) {
+                                if (g_module_levels[i].name ==
+                                        module || // pointer match (literal interning)
+                                    std::strcmp(g_module_levels[i].name, module) == 0) {
+                                        return g_module_levels[i].level;
+                                }
+                        }
                 }
-            }
-            return g_global_level;
+                return g_global_level;
         }
-    } // namespace
+} // namespace
 
-    // ---- Registry -----------------------------------------------------------
+// ---- Registry -----------------------------------------------------------
 
-    bool register_sink(ISink *sink)
-    {
+bool register_sink(ISink *sink)
+{
         if (sink == nullptr) {
-            return false;
+                return false;
         }
         if (g_sink_count >= EMBLOGX_MAX_SINKS) {
-            return false;
+                return false;
         }
         g_sinks[g_sink_count] = sink;
         g_sink_enabled[g_sink_count] = true;
         ++g_sink_count;
         return true;
-    }
+}
 
-    uint8_t sink_count()
-    {
+uint8_t sink_count()
+{
         return g_sink_count;
-    }
+}
 
-    void init()
-    {
+void init()
+{
         // Allow re-entry: sinks registered after the first init() call (like SD
         // sink registered after mount, while lazy init already ran for an earlier
         // log call) must still get their begin() called. The g_sink_begun[] guard
         // prevents double-begin on sinks that were already processed.
         g_initialized = true;
         for (uint8_t i = 0; i < g_sink_count; ++i) {
-            if (g_sinks[i] != nullptr && g_sink_enabled[i] && !g_sink_begun[i]) {
-                g_sink_begun[i] = true;
-                if (!g_sinks[i]->begin()) {
-                    g_sink_enabled[i] = false;
+                if (g_sinks[i] != nullptr && g_sink_enabled[i] && !g_sink_begun[i]) {
+                        g_sink_begun[i] = true;
+                        if (!g_sinks[i]->begin()) {
+                                g_sink_enabled[i] = false;
+                        }
                 }
-            }
         }
-    }
+}
 
-    void flush_all()
-    {
+void flush_all()
+{
         for (uint8_t i = 0; i < g_sink_count; ++i) {
-            if (g_sinks[i] != nullptr && g_sink_enabled[i]) {
-                g_sinks[i]->flush();
-            }
+                if (g_sinks[i] != nullptr && g_sink_enabled[i]) {
+                        g_sinks[i]->flush();
+                }
         }
-    }
+}
 
-    // ---- Runtime config -----------------------------------------------------
+// ---- Runtime config -----------------------------------------------------
 
-    void set_global_level(Level lvl)
-    {
+void set_global_level(Level lvl)
+{
         g_global_level = lvl;
-    }
+}
 
-    Level get_global_level()
-    {
+Level get_global_level()
+{
         return g_global_level;
-    }
+}
 
-    bool set_module_level(const char *module, Level lvl)
-    {
+bool set_module_level(const char *module, Level lvl)
+{
         if (module == nullptr) {
-            return false;
+                return false;
         }
         // Update existing entry first
         for (uint8_t i = 0; i < g_module_count; ++i) {
-            if (g_module_levels[i].name == module || std::strcmp(g_module_levels[i].name, module) == 0) {
-                g_module_levels[i].level = lvl;
-                return true;
-            }
+                if (g_module_levels[i].name == module ||
+                    std::strcmp(g_module_levels[i].name, module) == 0) {
+                        g_module_levels[i].level = lvl;
+                        return true;
+                }
         }
         if (g_module_count >= MODULE_LEVEL_SLOTS) {
-            return false;
+                return false;
         }
         g_module_levels[g_module_count++] = ModuleLevel{ module, lvl };
         return true;
-    }
+}
 
-    void set_sink_enabled(uint8_t index, bool enabled)
-    {
+void set_sink_enabled(uint8_t index, bool enabled)
+{
         if (index >= g_sink_count) {
-            return;
+                return;
         }
         g_sink_enabled[index] = enabled;
-    }
+}
 
-    bool is_sink_enabled(uint8_t index)
-    {
+bool is_sink_enabled(uint8_t index)
+{
         if (index >= g_sink_count) {
-            return false;
+                return false;
         }
         return g_sink_enabled[index];
-    }
+}
 
-    void set_rate_limit_ms(uint32_t ms)
-    {
+void set_rate_limit_ms(uint32_t ms)
+{
         g_rate_limit_ms = ms;
         if (ms == 0) {
-            // Disabling the limiter wipes the bookkeeping. The
-            // alternative — keeping stale entries around forever —
-            // would haunt the next call that re-enables limiting.
-            // `clear_rate_limiter()` exists as the explicit form;
-            // this wrapping just makes "disable" intuitive.
-            clear_rate_limiter();
+                // Disabling the limiter wipes the bookkeeping. The
+                // alternative — keeping stale entries around forever —
+                // would haunt the next call that re-enables limiting.
+                // `clear_rate_limiter()` exists as the explicit form;
+                // this wrapping just makes "disable" intuitive.
+                clear_rate_limiter();
         }
-    }
+}
 
-    uint32_t get_rate_limit_ms()
-    {
+uint32_t get_rate_limit_ms()
+{
         return g_rate_limit_ms;
-    }
+}
 
-    void clear_rate_limiter()
-    {
+void clear_rate_limiter()
+{
         for (uint8_t i = 0; i < RATE_SLOTS; ++i) {
-            g_rate_entries_normal[i] = RateEntry{};
-            g_rate_entries_error[i] = RateEntry{};
+                g_rate_entries_normal[i] = RateEntry{};
+                g_rate_entries_error[i] = RateEntry{};
         }
-    }
+}
 
-    ISink *sink_at(uint8_t index)
-    {
+ISink *sink_at(uint8_t index)
+{
         if (index >= g_sink_count) {
-            return nullptr;
+                return nullptr;
         }
         return g_sinks[index];
-    }
+}
 
-    // ---- Time source --------------------------------------------------------
+// ---- Time source --------------------------------------------------------
 
-    namespace
-    {
+namespace
+{
         NowMsFn s_now_ms_provider = nullptr;
 
         // Built-in default: monotonic since boot. Used whenever no host-
@@ -250,177 +252,184 @@ namespace emblogx
         int64_t default_monotonic_ms()
         {
 #ifdef ESP_PLATFORM
-            return esp_timer_get_time() / 1000;
+                return esp_timer_get_time() / 1000;
 #else
-            timespec tsp{};
-            clock_gettime(CLOCK_MONOTONIC, &tsp);
-            return (static_cast<int64_t>(tsp.tv_sec) * 1000) + (static_cast<int64_t>(tsp.tv_nsec) / 1000000);
+                timespec tsp{};
+                clock_gettime(CLOCK_MONOTONIC, &tsp);
+                return (static_cast<int64_t>(tsp.tv_sec) * 1000) +
+                       (static_cast<int64_t>(tsp.tv_nsec) / 1000000);
 #endif
         }
-    } // namespace
+} // namespace
 
-    void set_now_ms_provider(NowMsFn fname)
-    {
+void set_now_ms_provider(NowMsFn fname)
+{
         s_now_ms_provider = fname;
-    }
+}
 
-    NowMsFn get_now_ms_provider()
-    {
+NowMsFn get_now_ms_provider()
+{
         return s_now_ms_provider;
-    }
+}
 
-    int64_t now_ms()
-    {
+int64_t now_ms()
+{
         if (s_now_ms_provider != nullptr) {
-            return s_now_ms_provider();
+                return s_now_ms_provider();
         }
         return default_monotonic_ms();
-    }
+}
 
-    // ---- Internal log entry point ------------------------------------------
-    //
-    // Format ONCE into a stack buffer, then walk the sink list. The producer
-    // pays the formatting cost exactly once regardless of how many sinks are
-    // registered. Async sinks copy the bytes into their own queue; sync sinks
-    // consume the buffer in place.
+// ---- Internal log entry point ------------------------------------------
+//
+// Format ONCE into a stack buffer, then walk the sink list. The producer
+// pays the formatting cost exactly once regardless of how many sinks are
+// registered. Async sinks copy the bytes into their own queue; sync sinks
+// consume the buffer in place.
 
-    namespace
-    {
-        void log_va_impl(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args, bool force)
+namespace
+{
+        void log_va_impl(uint8_t target, Level lvl, const char *module, const char *fmt,
+                         va_list args, bool force)
         {
-            if (!g_initialized) {
-                init();
-            }
+                if (!g_initialized) {
+                        init();
+                }
 
-            // Drop on level filter — also drops Debug entirely if not compiled in.
+                // Drop on level filter — also drops Debug entirely if not compiled in.
 #ifndef EMBLOGX_DEBUG_ENABLED
-            if (lvl == Level::Debug) {
-                return;
-            }
-#endif
-            if (static_cast<uint8_t>(lvl) < static_cast<uint8_t>(effective_level(module))) {
-                return;
-            }
-            if (target == 0 || g_sink_count == 0) {
-                return;
-            }
-
-            // Rate limiter — forced calls always go through. Errors are
-            // rate-limited from their own pool so they cannot be crowded
-            // out by non-error noise; use the `_force` variant when an
-            // error must always land regardless of cadence.
-            if (!force) {
-                RateEntry *pool = (lvl == Level::Error) ? g_rate_entries_error : g_rate_entries_normal;
-                if (rate_limited(pool, fmt, now_ms())) {
-                    return;
+                if (lvl == Level::Debug) {
+                        return;
                 }
-            }
+#endif
+                if (static_cast<uint8_t>(lvl) < static_cast<uint8_t>(effective_level(module))) {
+                        return;
+                }
+                if (target == 0 || g_sink_count == 0) {
+                        return;
+                }
 
-            // ---- Format once ------------------------------------------------
-            char line[EMBLOGX_LINE_MAX];
-            const char *level_str = levelName(lvl);
-            const char *mod_str = (module != nullptr && module[0] != '\0') ? module : "-";
+                // Rate limiter — forced calls always go through. Errors are
+                // rate-limited from their own pool so they cannot be crowded
+                // out by non-error noise; use the `_force` variant when an
+                // error must always land regardless of cadence.
+                if (!force) {
+                        RateEntry *pool = (lvl == Level::Error) ? g_rate_entries_error :
+                                                                  g_rate_entries_normal;
+                        if (rate_limited(pool, fmt, now_ms())) {
+                                return;
+                        }
+                }
 
-            // Optional "[YYYY-MM-DD HH:MM:SS] " prefix. Two gates:
-            //   1. EMBLOGX_TIMESTAMP_FORMAT must be a non-empty strftime spec.
-            //      Define `-DEMBLOGX_TIMESTAMP_FORMAT=""` to disable globally
-            //      (useful for byte-stable test output).
-            //   2. The current `now_ms()` value must be a real wall-clock
-            //      epoch — we treat values past kWallClockThresholdMs (year
-            //      ~2017 in epoch ms) as wall-clock, anything below that is
-            //      monotonic-since-boot and gets no prefix. This means the
-            //      prefix appears automatically once an NTP-fed provider
-            //      (or any other wall-clock source) is registered, and
-            //      stays absent before that — no "[1970-01-01 00:00:NN]"
-            //      noise sneaks into logs.
-            constexpr int64_t kWallClockThresholdMs = 1'500'000'000'000LL;
-            const int64_t epoch_ms_value = now_ms();
+                // ---- Format once ------------------------------------------------
+                char line[EMBLOGX_LINE_MAX];
+                const char *level_str = levelName(lvl);
+                const char *mod_str = (module != nullptr && module[0] != '\0') ? module : "-";
 
-            int prefix_len = 0;
+                // Optional "[YYYY-MM-DD HH:MM:SS] " prefix. Two gates:
+                //   1. EMBLOGX_TIMESTAMP_FORMAT must be a non-empty strftime spec.
+                //      Define `-DEMBLOGX_TIMESTAMP_FORMAT=""` to disable globally
+                //      (useful for byte-stable test output).
+                //   2. The current `now_ms()` value must be a real wall-clock
+                //      epoch — we treat values past kWallClockThresholdMs (year
+                //      ~2017 in epoch ms) as wall-clock, anything below that is
+                //      monotonic-since-boot and gets no prefix. This means the
+                //      prefix appears automatically once an NTP-fed provider
+                //      (or any other wall-clock source) is registered, and
+                //      stays absent before that — no "[1970-01-01 00:00:NN]"
+                //      noise sneaks into logs.
+                constexpr int64_t kWallClockThresholdMs = 1'500'000'000'000LL;
+                const int64_t epoch_ms_value = now_ms();
+
+                int prefix_len = 0;
 #ifdef EMBLOGX_TIMESTAMP_FORMAT
-            if (epoch_ms_value > kWallClockThresholdMs && EMBLOGX_TIMESTAMP_FORMAT[0] != '\0') {
-                const time_t epoch_s = static_cast<time_t>(epoch_ms_value / 1000);
-                struct tm tm_utc{};
-                gmtime_r(&epoch_s, &tm_utc);
-                char inner[24];
-                const size_t inner_len = strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
-                if (inner_len > 0) {
-                    prefix_len = std::snprintf(line, sizeof(line), "[%s] ", inner);
-                    if (prefix_len < 0) {
-                        prefix_len = 0;
-                    }
-                    if (prefix_len >= static_cast<int>(sizeof(line))) {
-                        prefix_len = static_cast<int>(sizeof(line)) - 1;
-                    }
+                if (epoch_ms_value > kWallClockThresholdMs && EMBLOGX_TIMESTAMP_FORMAT[0] != '\0') {
+                        const time_t epoch_s = static_cast<time_t>(epoch_ms_value / 1000);
+                        struct tm tm_utc{};
+                        gmtime_r(&epoch_s, &tm_utc);
+                        char inner[24];
+                        const size_t inner_len =
+                            strftime(inner, sizeof(inner), EMBLOGX_TIMESTAMP_FORMAT, &tm_utc);
+                        if (inner_len > 0) {
+                                prefix_len = std::snprintf(line, sizeof(line), "[%s] ", inner);
+                                if (prefix_len < 0) {
+                                        prefix_len = 0;
+                                }
+                                if (prefix_len >= static_cast<int>(sizeof(line))) {
+                                        prefix_len = static_cast<int>(sizeof(line)) - 1;
+                                }
+                        }
                 }
-            }
 #endif
 
-            int header_len = std::snprintf(line + prefix_len, sizeof(line) - static_cast<size_t>(prefix_len),
-                                           "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
-            if (header_len < 0) {
-                return;
-            }
-            // Combined header = timestamp prefix + level/module header.
-            header_len += prefix_len;
-            if (header_len >= static_cast<int>(sizeof(line))) {
-                header_len = static_cast<int>(sizeof(line)) - 1;
-            }
-
-            // Forward via va_copy. Strictly the current call sites only consume
-            // the va_list once so passing `args` directly would also work, but
-            // va_copy is the textbook-correct pattern for any function that takes
-            // a forwarded va_list — it makes the implementation safe against future
-            // code paths (level filters, retries, fallback formatting) that might
-            // want to walk the args a second time.
-            va_list args_copy;
-            va_copy(args_copy, args);
-            int body_len =
-                std::vsnprintf(line + header_len, sizeof(line) - static_cast<size_t>(header_len), fmt, args_copy);
-            va_end(args_copy);
-            if (body_len < 0) {
-                return;
-            }
-
-            int total = header_len + body_len;
-            if (total >= static_cast<int>(sizeof(line))) {
-                // Truncated — keep within bounds, no trailing newline guarantee.
-                total = static_cast<int>(sizeof(line)) - 1;
-                line[total] = '\0';
-            }
-
-            // ---- Build record and dispatch ----------------------------------
-            Record rec{};
-            rec.target = target;
-            rec.level = lvl;
-            rec.module = mod_str;
-            rec.line = line;
-            rec.line_len = static_cast<uint16_t>(total);
-            rec.timestamp_prefix_len = static_cast<uint16_t>(prefix_len);
-            rec.timestamp = epoch_ms_value; // re-use the value already queried for the prefix to
-            // save one call
-
-            for (uint8_t i = 0; i < g_sink_count; ++i) {
-                ISink *sink = g_sinks[i];
-                if (sink == nullptr || !g_sink_enabled[i]) {
-                    continue;
+                int header_len =
+                    std::snprintf(line + prefix_len, sizeof(line) - static_cast<size_t>(prefix_len),
+                                  "%s[%s][%s] ", EMBLOGX_LOG_PREFIX, level_str, mod_str);
+                if (header_len < 0) {
+                        return;
                 }
-                if ((rec.target & sink->capabilities()) == 0) {
-                    continue;
+                // Combined header = timestamp prefix + level/module header.
+                header_len += prefix_len;
+                if (header_len >= static_cast<int>(sizeof(line))) {
+                        header_len = static_cast<int>(sizeof(line)) - 1;
                 }
-                sink->write(rec);
-            }
+
+                // Forward via va_copy. Strictly the current call sites only consume
+                // the va_list once so passing `args` directly would also work, but
+                // va_copy is the textbook-correct pattern for any function that takes
+                // a forwarded va_list — it makes the implementation safe against future
+                // code paths (level filters, retries, fallback formatting) that might
+                // want to walk the args a second time.
+                va_list args_copy;
+                va_copy(args_copy, args);
+                int body_len = std::vsnprintf(line + header_len,
+                                              sizeof(line) - static_cast<size_t>(header_len), fmt,
+                                              args_copy);
+                va_end(args_copy);
+                if (body_len < 0) {
+                        return;
+                }
+
+                int total = header_len + body_len;
+                if (total >= static_cast<int>(sizeof(line))) {
+                        // Truncated — keep within bounds, no trailing newline guarantee.
+                        total = static_cast<int>(sizeof(line)) - 1;
+                        line[total] = '\0';
+                }
+
+                // ---- Build record and dispatch ----------------------------------
+                Record rec{};
+                rec.target = target;
+                rec.level = lvl;
+                rec.module = mod_str;
+                rec.line = line;
+                rec.line_len = static_cast<uint16_t>(total);
+                rec.timestamp_prefix_len = static_cast<uint16_t>(prefix_len);
+                rec.timestamp =
+                    epoch_ms_value; // re-use the value already queried for the prefix to
+                // save one call
+
+                for (uint8_t i = 0; i < g_sink_count; ++i) {
+                        ISink *sink = g_sinks[i];
+                        if (sink == nullptr || !g_sink_enabled[i]) {
+                                continue;
+                        }
+                        if ((rec.target & sink->capabilities()) == 0) {
+                                continue;
+                        }
+                        sink->write(rec);
+                }
         }
-    } // namespace
+} // namespace
 
-    void log_va(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args)
-    {
+void log_va(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args)
+{
         log_va_impl(target, lvl, module, fmt, args, false);
-    }
+}
 
-    void log_va_force(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args)
-    {
+void log_va_force(uint8_t target, Level lvl, const char *module, const char *fmt, va_list args)
+{
         log_va_impl(target, lvl, module, fmt, args, true);
-    }
+}
 
 } // namespace emblogx

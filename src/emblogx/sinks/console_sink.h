@@ -36,15 +36,15 @@
 namespace emblogx
 {
 
-    class ConsoleSink : public ISink {
+class ConsoleSink : public ISink {
     public:
         uint8_t capabilities() const override
         {
-            return Capability::LOG;
+                return Capability::LOG;
         }
         Mode mode() const override
         {
-            return Mode::Sync;
+                return Mode::Sync;
         }
 
         bool begin() override;
@@ -52,9 +52,9 @@ namespace emblogx
         void flush() override;
         const char *name() const override
         {
-            return "console";
+                return "console";
         }
-    };
+};
 
 } // namespace emblogx
 

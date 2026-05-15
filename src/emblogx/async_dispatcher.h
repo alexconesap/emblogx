@@ -35,7 +35,7 @@
 namespace emblogx
 {
 
-    class AsyncDispatcher {
+class AsyncDispatcher {
     public:
         using Handler = void (*)(const Record &rec, void *ctx);
 
@@ -56,8 +56,8 @@ namespace emblogx
         //                  (TCP/TLS through esp_http_client).
         // priority         FreeRTOS task priority (1 is fine for log workers)
         // core             core to pin to (1 = network core on dual-core ESP32)
-        bool start(Handler handler, void *ctx, const char *task_name, uint32_t stack_size_words = 4096,
-                   uint8_t priority = 1, int core = 1);
+        bool start(Handler handler, void *ctx, const char *task_name,
+                   uint32_t stack_size_words = 4096, uint8_t priority = 1, int core = 1);
 
         // Stop the worker task. Drains all pending records first.
         void stop();
@@ -77,13 +77,13 @@ namespace emblogx
         // an async sink that re-emits a Slot can store the value back
         // into a Record without conversion.
         struct Slot {
-            uint8_t target;
-            Level level;
-            const char *module; // stable literal pointer
-            int64_t timestamp;
-            uint16_t line_len;
-            uint16_t timestamp_prefix_len;
-            char line[SLOT_BYTES];
+                uint8_t target;
+                Level level;
+                const char *module; // stable literal pointer
+                int64_t timestamp;
+                uint16_t line_len;
+                uint16_t timestamp_prefix_len;
+                char line[SLOT_BYTES];
         };
 
         Slot slots_[SLOTS] = {};
@@ -104,6 +104,6 @@ namespace emblogx
 #endif
 
         bool pop(Slot &out);
-    };
+};
 
 } // namespace emblogx

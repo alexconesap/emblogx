@@ -27,33 +27,33 @@
 namespace emblogx
 {
 
-    class HttpSink : public ISink {
+class HttpSink : public ISink {
     public:
         // endpoint_url is borrowed — must outlive the sink.
         explicit HttpSink(const char *endpoint_url)
                 : url_(endpoint_url)
         {
-            // The JSON payload encodes Record::timestamp as a numeric
-            // field, so a duplicated text prefix inside `message`
-            // would be noise. Hosts that want the prefix in the
-            // `message` field too can call `set_show_timestamp(true)`.
-            set_show_timestamp(false);
+                // The JSON payload encodes Record::timestamp as a numeric
+                // field, so a duplicated text prefix inside `message`
+                // would be noise. Hosts that want the prefix in the
+                // `message` field too can call `set_show_timestamp(true)`.
+                set_show_timestamp(false);
         }
 
         uint8_t capabilities() const override
         {
-            return Capability::LOG | Capability::AUDIT | Capability::STATUS;
+                return Capability::LOG | Capability::AUDIT | Capability::STATUS;
         }
         Mode mode() const override
         {
-            return Mode::Async;
+                return Mode::Async;
         }
 
         bool begin() override;
         void write(const Record &rec) override;
         const char *name() const override
         {
-            return "http";
+                return "http";
         }
 
     private:
@@ -61,7 +61,7 @@ namespace emblogx
         AsyncDispatcher dispatcher_;
 
         static void on_record(const Record &rec, void *ctx);
-    };
+};
 
 } // namespace emblogx
 

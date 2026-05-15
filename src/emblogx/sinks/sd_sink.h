@@ -39,7 +39,7 @@
 namespace emblogx
 {
 
-    class SdSink : public ISink {
+class SdSink : public ISink {
     public:
         // Single-file mode. fs and path are borrowed — both must outlive the sink.
         SdSink(::ungula::sd::IFileSystem &fs, const char *path)
@@ -62,11 +62,11 @@ namespace emblogx
 
         uint8_t capabilities() const override
         {
-            return Capability::AUDIT;
+                return Capability::AUDIT;
         }
         Mode mode() const override
         {
-            return Mode::Async;
+                return Mode::Async;
         }
 
         bool begin() override;
@@ -74,7 +74,7 @@ namespace emblogx
         void flush() override;
         const char *name() const override
         {
-            return "sd";
+                return "sd";
         }
 
     private:
@@ -91,7 +91,7 @@ namespace emblogx
 
         bool is_journal_mode() const
         {
-            return dir_ != nullptr && prefix_ != nullptr;
+                return dir_ != nullptr && prefix_ != nullptr;
         }
 
         // Journal helpers
@@ -99,7 +99,7 @@ namespace emblogx
         void cleanup_old_journals();
 
         static void on_record(const Record &rec, void *ctx);
-    };
+};
 
 } // namespace emblogx
 
