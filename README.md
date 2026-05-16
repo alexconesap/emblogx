@@ -2,6 +2,8 @@
 
 > **High-performance embedded C++ libraries for ESP32, STM32 and other MCUs** — embedded-first logging with FDA-compliant audit router.
 
+> **LLM usage note:** if this library is consumed from a coding AI workflow, explicitly point the agent to `API.md` first. `API.md` is the LLM-facing contract (public API + examples + constraints) and avoids wasting time/tokens scanning source files and this human-oriented README.
+
 **Embedded-first** logging library for ESP32-class targets. One log call goes
 to every place that needs it (serial console, RAM ring, HTTP server, MQTT
 broker, SD card, ...) without the host project having to remember which sinks
@@ -30,6 +32,36 @@ All declared sinks that are 'synchronous' are called immediately while those
 declared 'asynchronous' are dispatched on a dedicated FreeRTOS worker task
 with a static queue, so the producer task never blocks on flash, network
 or filesystem I/O.
+
+## Table of Contents
+
+- [Keywords](#keywords)
+- [In a nutshell](#in-a-nutshell)
+- [Rate limiting](#rate-limiting)
+- [When you need more](#when-you-need-more)
+- [Why this exists](#why-this-exists)
+- [Architecture](#architecture)
+- [Public API](#public-api)
+- [Sinks](#sinks)
+- [Recipes](#recipes)
+  - [1. Console only — bench testing, prototypes](#1-console-only-bench-testing-prototypes)
+  - [2. Console + memory ring — UI device that shows recent logs](#2-console-memory-ring-ui-device-that-shows-recent-logs)
+  - [3. Console + HTTP — remote / cloud telemetry](#3-console-http-remote-cloud-telemetry)
+  - [4. Console + memory + SD — full FDA audit trail (regulatory compliance)](#4-console-memory-sd-full-fda-audit-trail-regulatory-compliance)
+  - [5. Everything wired — kitchen sink](#5-everything-wired-kitchen-sink)
+- [Memory sink — RTT-style trace buffer](#memory-sink-rtt-style-trace-buffer)
+- [Configuration](#configuration)
+- [Runtime control](#runtime-control)
+- [Wall-clock timestamps via a pluggable time source](#wall-clock-timestamps-via-a-pluggable-time-source)
+  - [Caveats worth knowing](#caveats-worth-knowing)
+  - [Timestamp prefix in `Record::line`](#timestamp-prefix-in-recordline)
+- [Troubleshooting](#troubleshooting)
+- [Testing](#testing)
+  - [Local development (sibling repos available)](#local-development-sibling-repos-available)
+  - [Standalone (no sibling repos)](#standalone-no-sibling-repos)
+- [Dependencies](#dependencies)
+- [Acknowledgements](#acknowledgements)
+- [License](#license)
 
 ## Keywords
 
@@ -626,7 +658,7 @@ record, only when a provider is registered.
 #include <emblogx/logger.h>
 
 // In tests:
-int64_t fake_clock() { return 1'700'000'000'123LL; }
+int64_t fake_clock() { return 1700000000123LL; }
 emblogx::set_now_ms_provider(&fake_clock);
 // ... log calls now produce records with timestamp == 1700000000123 ...
 emblogx::set_now_ms_provider(nullptr);   // teardown
