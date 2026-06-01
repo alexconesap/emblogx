@@ -1,8 +1,8 @@
 cff-version: 1.1.0
 message: "If you use this software, please cite it as below."
 authors:
-- family-names: Alexandre
-  given-names: Conesa Pueyo
+- family-names: Conesa Pueyo
+  given-names: Alexandre
 orcid: https://orcid.org/0009-0009-8768-1948
 zenodo: https://doi.org/10.5281/zenodo.20499903
 title:alexconesap/emblogx: C++ Logging for Embedded Systems - Initial Functional Release
